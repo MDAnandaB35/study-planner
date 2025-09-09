@@ -20,6 +20,9 @@ export const supabase = createClient(
   process.env.SUPABASE_KEY
 );
 
+// Make Supabase available to routes via app locals
+app.set("supabase", supabase);
+
 // Routes
 import authRoutes from "./routes/auth.js";
 import aiRoutes from "./routes/ai.js";
