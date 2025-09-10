@@ -133,7 +133,7 @@ Seed/Schema: see `backend/supabase_schema_additions.sql`.
 - Frontend framework: React becase I am familiar with it, as I have past experiences during the KADA program. React also offers reusable components and TailwindCSS that speeds up responsive UI design.
 - Backend: Express (Node.js) keeps the same language across stack, simple middleware model, and quick integration with Supabase and OpenAI SDK/HTTP.
 - Database: Supabase Postgres provides hosted Postgres, Row Level Security, and convenient JS client. It also handles authentication automatically, allowing for a faster app development.
-- Alternatives considered: Next.js (SSR/ISR) for integrated full‑stack; Firebase (NoSQL) but relational queries and joins favor Postgres; Python FastAPI/Flask Fiber for backend performance—skipped to maintain JS end‑to‑end velocity.
+- Alternatives considered: FastAPI/Flask were attractive for their Python strengths (typed validation, ML/data ecosystem, rapid prototyping). For QuickMap, we selected Node/Express to keep a single-language stack, maximize developer velocity with React, and simplify integration with frontend-first services.
 
 ### API Design Philosophy
 
@@ -146,14 +146,14 @@ Seed/Schema: see `backend/supabase_schema_additions.sql`.
   - Public browsing: GET `/ai/plans/public`, GET `/ai/plans/public/:id`
   - Bookmarks & progress: POST/DELETE `/ai/public/plans/:id/bookmark`, GET `/ai/bookmarks`, GET/POST `/ai/public/plans/:id/progress`
 - External API integration: OpenAI Chat Completions generates a strict JSON roadmap. The backend validates/parses JSON, then persists to Postgres.
-- Failure handling & rate limits: Axios timeouts, explicit 4xx/5xx responses, JSON parsing guards, minimal retries (extendable). For rate limits, we centralize the OpenAI call through one endpoint and can add a token‑bucket middleware.
-- Auth/authz: Supabase Auth; login sets an HttpOnly cookie with `access_token`. Protected endpoints use `requireAuth` to validate tokens and enforce per‑user data access. Public browsing excludes the current user’s plans.
+- Failure handling & rate limits: The server checks inputs, catches JSON errors, and returns clear error messages.
+- Auth: Supabase Auth is used. Logged-in users can only access their own data, while public plans can be viewed by anyone.
 
 ### Performance & Scalability
 
-- Handling load: Stateless Express + CDN frontend. Supabase scales Postgres plus connection pooling. Add horizontal API scaling and caching layer for read endpoints.
-- Bottlenecks: OpenAI response time, multi‑insert fan‑out when persisting nested milestones/steps/resources, N+1 reads when composing plan trees.
-- Optimizations: Batch inserts, selective field projections, indexing foreign keys and `order_index`, optional caching for public listings, and client‑side pagination.
+- Load handling: The backend doesn’t store state, so it can be scaled easily. Supabase handles database growth, and the frontend is delivered through a CDN.
+- Bottlenecks: Waiting for OpenAI’s response and saving many items (milestones/steps) at once.
+- Optimizations: Save items in batches, use database indexes for faster lookups.
 
 ## 3) Integration Strategy
 
@@ -170,10 +170,10 @@ Seed/Schema: see `backend/supabase_schema_additions.sql`.
 ## Optional Advanced Features (Ideas)
 
 - Build rate limiting and usage analytics middleware.
-- Add GraphQL facade for selective queries over plans and nested entities.
-- Webhooks for plan updates or progress changes.
-- API versioning via `/v1` prefixes and deprecation headers.
-- Automated API tests with Postman/Newman or Jest + supertest.
+- Caching for faster response.
+- Enrollment system, where users are able to enroll/bookmark a study by entering a code.
+- Private and public option for study plan.
+- Classroom implementations.
 
 ## Submission Checklist
 
@@ -182,6 +182,7 @@ Seed/Schema: see `backend/supabase_schema_additions.sql`.
 - Clear structure for `backend/` and `frontend/`. `package.json` files list all dependencies.
 - README (this file) with overview and setup.
 - Sample requests available via Postman collection in `backend/`.
+https://github.com/MDAnandaB35/study-planner
 
 2. Working Demo
 
