@@ -69,7 +69,7 @@ router.post("/complete", requireAuth, async (req, res) => {
         - A description
         - An estimated duration (in weeks)
         - Multiple steps (each with a title + description)
-      - Each step must include at least one recommended resource
+      - Each step must include at least one recommended resource with trustworthy and reputable sources, do not include any sources that are not trustworthy and reputable.
         (type: link, video, or book).
       - The output must be strictly valid JSON matching the schema.
     `;
@@ -135,7 +135,6 @@ router.post("/complete", requireAuth, async (req, res) => {
     }
 
     // Persist to Supabase: study_plans -> plan_milestones -> milestone_steps -> step_resources
-    // Assumes tables exist with FKs: plan_milestones.plan_id -> study_plans.id, milestone_steps.milestone_id -> plan_milestones.id, step_resources.step_id -> milestone_steps.id
     const { planTitle, focus: planFocus, outcome: planOutcome, estimatedDurationWeeks, milestones } = roadmapJson || {};
 
     // 1) Insert plan

@@ -64,6 +64,7 @@ export default function PublicPlans() {
 
         <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
           <h3 className="text-xl font-semibold mb-4">Study Plans by Other Users</h3>
+          <h5 className="text-m  mb-4">Discover and explore study plans created by other users.</h5>
           <div className="mb-4">
             <input
               type="text"

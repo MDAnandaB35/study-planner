@@ -27,6 +27,7 @@ export default function Dashboard() {
     })();
   }, [navigate]);
 
+  // Handle logout
   const onLogout = async () => {
     try {
       await api.logout();
@@ -35,10 +36,12 @@ export default function Dashboard() {
     }
   };
 
+  // Handle edit plan
   const handleEditPlan = (plan) => {
     setEditingPlan(plan);
   };
 
+  // Handle delete plan
   const handleDeletePlan = async (planId) => {
     if (!window.confirm('Are you sure you want to delete this plan? This action cannot be undone.')) {
       return;
@@ -70,15 +73,15 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 p-6">
       <div className="max-w-3xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-semibold">Study Plan List</h2>
+        <div className="flex-col items-center justify-between mb-6">
+          <h2 className="text-2xl font-semibold">Your Study Plan List</h2>
+          <p className="text-l font-semibold">Manage your study plans.</p>
         </div>
         <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5 mb-6">
-          <p className="mb-3">Welcome{user?.email ? `, ${user.email}` : ''}!</p>
+          <p className="mb-3">Welcome back{user?.email ? `, ${user.email}` : ''}!</p>
         </div>
 
         <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
-          <h3 className="text-xl font-semibold mb-3">Your Study Plans</h3>
           <div className="mb-4">
             <input
               type="text"

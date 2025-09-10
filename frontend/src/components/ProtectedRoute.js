@@ -7,10 +7,11 @@ export default function ProtectedRoute({ children }) {
   const [loading, setLoading] = React.useState(true);
   const [isAuthenticated, setIsAuthenticated] = React.useState(false);
 
+  // Check if user is authenticated
   React.useEffect(() => {
     (async () => {
       try {
-        await api.getMe();
+        await api.getMe(); // API call to get user
         setIsAuthenticated(true);
       } catch (e) {
         setIsAuthenticated(false);

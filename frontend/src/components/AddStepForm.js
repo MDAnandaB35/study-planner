@@ -2,6 +2,7 @@ import React from 'react';
 import api from '../api';
 
 export default function AddStepForm({ milestoneId, onSave, onCancel }) {
+  // title, description
   const [formData, setFormData] = React.useState({
     title: '',
     description: ''
@@ -9,11 +10,13 @@ export default function AddStepForm({ milestoneId, onSave, onCancel }) {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState('');
 
+  // Handle submit
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
+    // Validate form data
     try {
       const data = {
         title: formData.title.trim(),
@@ -33,6 +36,7 @@ export default function AddStepForm({ milestoneId, onSave, onCancel }) {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  // Show form
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
       <div className="bg-slate-900 rounded-xl border border-slate-800 p-6 w-full max-w-md">

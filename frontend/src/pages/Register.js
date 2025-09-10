@@ -57,7 +57,7 @@ export default function Register() {
         </form>
         {error && <div className="mt-3 text-sm text-rose-300">{error}</div>}
         <div className="mt-5 text-sm text-slate-400">
-          Already have an account? <Link className="text-sky-300 hover:underline" to="/">Sign in</Link>
+          Already have an account? <Link className="text-sky-300 hover:underline" to="/login">Sign in</Link>
         </div>
       </div>
     </div>

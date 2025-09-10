@@ -8,7 +8,7 @@ import PlanDetail from './pages/PlanDetail';
 import PublicPlans from './pages/PublicPlans';
 import PublicPlanDetail from './pages/PublicPlanDetail';
 import Bookmarked from './pages/Bookmarked';
-import ProtectedRoute from './components/ProtectedRoute';
+import ProtectedRoute from './components/ProtectedRoute'; // For pages that require authentication
 import Landing from './pages/Landing';
 
 export default function App() {

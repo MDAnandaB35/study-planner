@@ -33,3 +33,98 @@ create policy if not exists "progress_modify_own" on public.plan_progress
 for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 
+
+-- Study plan ownership policies (required for inserts/updates under RLS)
+-- Enable RLS on core tables if not already enabled
+alter table if exists public.study_plans enable row level security;
+alter table if exists public.plan_milestones enable row level security;
+alter table if exists public.milestone_steps enable row level security;
+alter table if exists public.step_resources enable row level security;
+
+-- study_plans: only owner can select/modify their rows
+create policy if not exists "plans_select_own" on public.study_plans
+for select using (auth.uid() = user_id);
+
+create policy if not exists "plans_modify_own" on public.study_plans
+for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- plan_milestones: only owner of parent plan can select/modify
+create policy if not exists "milestones_select_own_plan" on public.plan_milestones
+for select using (
+  exists (
+    select 1 from public.study_plans p
+    where p.id = plan_id and p.user_id = auth.uid()
+  )
+);
+
+create policy if not exists "milestones_modify_own_plan" on public.plan_milestones
+for all using (
+  exists (
+    select 1 from public.study_plans p
+    where p.id = plan_id and p.user_id = auth.uid()
+  )
+) with check (
+  exists (
+    select 1 from public.study_plans p
+    where p.id = plan_id and p.user_id = auth.uid()
+  )
+);
+
+-- milestone_steps: only owner via parent milestone->plan can select/modify
+create policy if not exists "steps_select_own_plan" on public.milestone_steps
+for select using (
+  exists (
+    select 1
+    from public.plan_milestones m
+    join public.study_plans p on p.id = m.plan_id
+    where m.id = milestone_id and p.user_id = auth.uid()
+  )
+);
+
+create policy if not exists "steps_modify_own_plan" on public.milestone_steps
+for all using (
+  exists (
+    select 1
+    from public.plan_milestones m
+    join public.study_plans p on p.id = m.plan_id
+    where m.id = milestone_id and p.user_id = auth.uid()
+  )
+) with check (
+  exists (
+    select 1
+    from public.plan_milestones m
+    join public.study_plans p on p.id = m.plan_id
+    where m.id = milestone_id and p.user_id = auth.uid()
+  )
+);
+
+-- step_resources: only owner via parent step->milestone->plan can select/modify
+create policy if not exists "resources_select_own_plan" on public.step_resources
+for select using (
+  exists (
+    select 1
+    from public.milestone_steps s
+    join public.plan_milestones m on m.id = s.milestone_id
+    join public.study_plans p on p.id = m.plan_id
+    where s.id = step_id and p.user_id = auth.uid()
+  )
+);
+
+create policy if not exists "resources_modify_own_plan" on public.step_resources
+for all using (
+  exists (
+    select 1
+    from public.milestone_steps s
+    join public.plan_milestones m on m.id = s.milestone_id
+    join public.study_plans p on p.id = m.plan_id
+    where s.id = step_id and p.user_id = auth.uid()
+  )
+) with check (
+  exists (
+    select 1
+    from public.milestone_steps s
+    join public.plan_milestones m on m.id = s.milestone_id
+    join public.study_plans p on p.id = m.plan_id
+    where s.id = step_id and p.user_id = auth.uid()
+  )
+);

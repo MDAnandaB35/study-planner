@@ -8,6 +8,35 @@ import AddStepForm from './AddStepForm';
 import AddResourceForm from './AddResourceForm';
 
 export default function RoadmapView({ plan, onPlanUpdate, readOnly = false, progress }) {
+  // Get youtube video id from url
+  const getYouTubeVideoId = (urlString) => {
+    if (!urlString) return '';
+    try {
+      const url = new URL(urlString);
+      const host = url.hostname.replace(/^www\./, '');
+      // youtu.be/<id>
+      if (host === 'youtu.be') {
+        return url.pathname.replace('/', '') || '';
+      }
+      // youtube.com/watch?v=<id>
+      if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'youtube-nocookie.com') {
+        return url.searchParams.get('v') || '';
+      }
+      // www.youtube.com
+      if (host === 'youtube.com' || host === 'www.youtube.com') {
+        return url.searchParams.get('v') || '';
+      }
+      return '';
+    } catch {
+      return '';
+    }
+  };
+
+  // Return youtube thumbnail url from video id
+  const getYouTubeThumbnailUrl = (videoId) => {
+    if (!videoId) return '';
+    return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+  };
   const [editingMilestone, setEditingMilestone] = React.useState(null);
   const [editingStep, setEditingStep] = React.useState(null);
   const [editingResource, setEditingResource] = React.useState(null);
@@ -144,17 +173,27 @@ export default function RoadmapView({ plan, onPlanUpdate, readOnly = false, prog
                         ) : null}
                         {(s.resources || []).length ? (
                           <ul className="list-disc pl-5 mt-1 space-y-1">
-                            {s.resources.map((r) => (
-                              <li key={r.id} className="text-slate-300 text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-                                <div>
-                                  <span className="uppercase text-xs text-slate-400 mr-2">{r.type}</span>
-                                  {r.url ? (
-                                    <a className="text-sky-400 hover:underline" href={r.url} target="_blank" rel="noreferrer">
-                                      {r.title || r.url}
+                            {s.resources.map((r) => {
+                              const ytId = getYouTubeVideoId(r.url);
+                              const thumb = getYouTubeThumbnailUrl(ytId);
+                              return (
+                              <li key={r.id} className="text-slate-300 text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                <div className="flex items-center gap-3">
+                                  {thumb ? (
+                                    <a href={r.url} target="_blank" rel="noreferrer" className="shrink-0">
+                                      <img src={thumb} alt="YouTube thumbnail" className="h-16 w-28 object-cover rounded border border-slate-800" />
                                     </a>
-                                  ) : (
-                                    <span>{r.title}</span>
-                                  )}
+                                  ) : null}
+                                  <div>
+                                    <span className="uppercase text-xs text-slate-400 mr-2">{r.type}</span>
+                                    {r.url ? (
+                                      <a className="text-sky-400 hover:underline" href={r.url} target="_blank" rel="noreferrer">
+                                        {r.title || r.url}
+                                      </a>
+                                    ) : (
+                                      <span>{r.title}</span>
+                                    )}
+                                  </div>
                                 </div>
                                 {!readOnly && (
                                   <div className="flex flex-wrap items-center gap-1 sm:ml-2">
@@ -173,7 +212,7 @@ export default function RoadmapView({ plan, onPlanUpdate, readOnly = false, prog
                                   </div>
                                 )}
                               </li>
-                            ))}
+                            );})}
                           </ul>
                         ) : null}
                       </div>

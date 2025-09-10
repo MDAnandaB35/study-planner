@@ -11,6 +11,7 @@ export default function Bookmarked() {
 
   React.useEffect(() => {
     (async () => {
+      // Ensure authenticated
       try {
         await api.getMe();
         const res = await api.listBookmarks();
@@ -31,6 +32,7 @@ export default function Bookmarked() {
     <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-200">Loading...</div>
   );
 
+  // Error loading bookmarks
   if (error) {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-200 p-6">
@@ -50,6 +52,7 @@ export default function Bookmarked() {
     );
   }
 
+  // Show bookmarks
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 p-6">
       <div className="max-w-4xl mx-auto">
@@ -82,6 +85,7 @@ export default function Bookmarked() {
                   );
                 })
                 .map((plan) => {
+                // Calculate progress percentage
                 const completed = plan?.progress?.completed || 0;
                 const total = plan?.progress?.total || 0;
                 const percent = total ? Math.round((completed / total) * 100) : 0;
