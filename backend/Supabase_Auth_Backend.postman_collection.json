@@ -242,7 +242,7 @@
 			"response": []
 		},
 		{
-			"name": "AI - Complete (Protected)",
+			"name": "AI - Generate Plan (Protected)",
 			"request": {
 				"method": "POST",
 				"header": [
@@ -257,7 +257,7 @@
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n  \"prompt\": \"Summarize the benefits of TDD.\"\n}"
+					"raw": "{\n  \"focus\": \"Learn React\",\n  \"outcome\": \"Build a production app\"\n}"
 				},
 				"url": {
 					"raw": "{{base_url}}/ai/complete",
@@ -269,7 +269,227 @@
 						"complete"
 					]
 				},
-				"description": "Send a user prompt to the protected AI endpoint. Requires login to populate {{access_token}}."
+				"description": "Generate a study plan from focus/outcome via OpenAI and persist. Requires login to populate {{access_token}}."
+			},
+			"response": []
+		},
+		{
+			"name": "AI - List My Plans",
+			"request": {
+				"method": "GET",
+				"header": [
+					{ "key": "Authorization", "value": "Bearer {{access_token}}" }
+				],
+				"url": { "raw": "{{base_url}}/ai/plans", "host": ["{{base_url}}"], "path": ["ai","plans"] },
+				"description": "List study plans for current user"
+			},
+			"response": []
+		},
+		{
+			"name": "AI - Get Latest Plan",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Authorization", "value": "Bearer {{access_token}}" } ],
+				"url": { "raw": "{{base_url}}/ai/plans/latest", "host": ["{{base_url}}"], "path": ["ai","plans","latest"] },
+				"description": "Fetch latest plan with nested milestones/steps/resources"
+			},
+			"response": []
+		},
+		{
+			"name": "AI - Get Plan By ID",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Authorization", "value": "Bearer {{access_token}}" } ],
+				"url": { "raw": "{{base_url}}/ai/plans/{{plan_id}}", "host": ["{{base_url}}"], "path": ["ai","plans","{{plan_id}}"] },
+				"description": "Fetch specific plan (must belong to user)"
+			},
+			"response": []
+		},
+		{
+			"name": "AI - Update Plan",
+			"request": {
+				"method": "PUT",
+				"header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{access_token}}" } ],
+				"body": { "mode": "raw", "raw": "{\n  \"title\": \"New Title\",\n  \"focus\": \"...\",\n  \"outcome\": \"...\",\n  \"estimated_duration_weeks\": 8\n}" },
+				"url": { "raw": "{{base_url}}/ai/plans/{{plan_id}}", "host": ["{{base_url}}"], "path": ["ai","plans","{{plan_id}}"] },
+				"description": "Update plan basic fields"
+			},
+			"response": []
+		},
+		{
+			"name": "AI - Delete Plan",
+			"request": {
+				"method": "DELETE",
+				"header": [ { "key": "Authorization", "value": "Bearer {{access_token}}" } ],
+				"url": { "raw": "{{base_url}}/ai/plans/{{plan_id}}", "host": ["{{base_url}}"], "path": ["ai","plans","{{plan_id}}"] },
+				"description": "Delete plan and related data"
+			},
+			"response": []
+		},
+		{
+			"name": "AI - Add Milestone",
+			"request": {
+				"method": "POST",
+				"header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{access_token}}" } ],
+				"body": { "mode": "raw", "raw": "{\n  \"title\": \"Foundations\",\n  \"description\": \"Basics\",\n  \"estimated_duration\": \"2 weeks\"\n}" },
+				"url": { "raw": "{{base_url}}/ai/plans/{{plan_id}}/milestones", "host": ["{{base_url}}"], "path": ["ai","plans","{{plan_id}}","milestones"] },
+				"description": "Create milestone on a plan"
+			},
+			"response": []
+		},
+		{
+			"name": "AI - Update Milestone",
+			"request": {
+				"method": "PUT",
+				"header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{access_token}}" } ],
+				"body": { "mode": "raw", "raw": "{\n  \"title\": \"Updated\",\n  \"description\": \"...\"\n}" },
+				"url": { "raw": "{{base_url}}/ai/milestones/{{milestone_id}}", "host": ["{{base_url}}"], "path": ["ai","milestones","{{milestone_id}}"] },
+				"description": "Update milestone"
+			},
+			"response": []
+		},
+		{
+			"name": "AI - Delete Milestone",
+			"request": {
+				"method": "DELETE",
+				"header": [ { "key": "Authorization", "value": "Bearer {{access_token}}" } ],
+				"url": { "raw": "{{base_url}}/ai/milestones/{{milestone_id}}", "host": ["{{base_url}}"], "path": ["ai","milestones","{{milestone_id}}"] },
+				"description": "Delete milestone"
+			},
+			"response": []
+		},
+		{
+			"name": "AI - Add Step",
+			"request": {
+				"method": "POST",
+				"header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{access_token}}" } ],
+				"body": { "mode": "raw", "raw": "{\n  \"title\": \"Read Docs\",\n  \"description\": \"react.dev\"\n}" },
+				"url": { "raw": "{{base_url}}/ai/milestones/{{milestone_id}}/steps", "host": ["{{base_url}}"], "path": ["ai","milestones","{{milestone_id}}","steps"] },
+				"description": "Create step on a milestone"
+			},
+			"response": []
+		},
+		{
+			"name": "AI - Update Step",
+			"request": {
+				"method": "PUT",
+				"header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{access_token}}" } ],
+				"body": { "mode": "raw", "raw": "{\n  \"title\": \"Updated Step\",\n  \"description\": \"...\"\n}" },
+				"url": { "raw": "{{base_url}}/ai/steps/{{step_id}}", "host": ["{{base_url}}"], "path": ["ai","steps","{{step_id}}"] },
+				"description": "Update step"
+			},
+			"response": []
+		},
+		{
+			"name": "AI - Delete Step",
+			"request": {
+				"method": "DELETE",
+				"header": [ { "key": "Authorization", "value": "Bearer {{access_token}}" } ],
+				"url": { "raw": "{{base_url}}/ai/steps/{{step_id}}", "host": ["{{base_url}}"], "path": ["ai","steps","{{step_id}}"] },
+				"description": "Delete step"
+			},
+			"response": []
+		},
+		{
+			"name": "AI - Add Resource",
+			"request": {
+				"method": "POST",
+				"header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{access_token}}" } ],
+				"body": { "mode": "raw", "raw": "{\n  \"type\": \"link\",\n  \"title\": \"React Docs\",\n  \"url\": \"https://react.dev\"\n}" },
+				"url": { "raw": "{{base_url}}/ai/steps/{{step_id}}/resources", "host": ["{{base_url}}"], "path": ["ai","steps","{{step_id}}","resources"] },
+				"description": "Create resource on a step"
+			},
+			"response": []
+		},
+		{
+			"name": "AI - Update Resource",
+			"request": {
+				"method": "PUT",
+				"header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{access_token}}" } ],
+				"body": { "mode": "raw", "raw": "{\n  \"type\": \"video\",\n  \"title\": \"Updated Title\",\n  \"url\": \"https://example.com\"\n}" },
+				"url": { "raw": "{{base_url}}/ai/resources/{{resource_id}}", "host": ["{{base_url}}"], "path": ["ai","resources","{{resource_id}}"] },
+				"description": "Update resource"
+			},
+			"response": []
+		},
+		{
+			"name": "AI - Delete Resource",
+			"request": {
+				"method": "DELETE",
+				"header": [ { "key": "Authorization", "value": "Bearer {{access_token}}" } ],
+				"url": { "raw": "{{base_url}}/ai/resources/{{resource_id}}", "host": ["{{base_url}}"], "path": ["ai","resources","{{resource_id}}"] },
+				"description": "Delete resource"
+			},
+			"response": []
+		},
+		{
+			"name": "Public - List Plans",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Authorization", "value": "Bearer {{access_token}}" } ],
+				"url": { "raw": "{{base_url}}/ai/plans/public", "host": ["{{base_url}}"], "path": ["ai","plans","public"] },
+				"description": "List public plans (excludes current user)"
+			},
+			"response": []
+		},
+		{
+			"name": "Public - Get Plan By ID",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Authorization", "value": "Bearer {{access_token}}" } ],
+				"url": { "raw": "{{base_url}}/ai/plans/public/{{plan_id}}", "host": ["{{base_url}}"], "path": ["ai","plans","public","{{plan_id}}"] },
+				"description": "Read-only public plan detail"
+			},
+			"response": []
+		},
+		{
+			"name": "Public - Bookmark Plan",
+			"request": {
+				"method": "POST",
+				"header": [ { "key": "Authorization", "value": "Bearer {{access_token}}" } ],
+				"url": { "raw": "{{base_url}}/ai/public/plans/{{plan_id}}/bookmark", "host": ["{{base_url}}"], "path": ["ai","public","plans","{{plan_id}}","bookmark"] },
+				"description": "Bookmark a public plan"
+			},
+			"response": []
+		},
+		{
+			"name": "Public - Unbookmark Plan",
+			"request": {
+				"method": "DELETE",
+				"header": [ { "key": "Authorization", "value": "Bearer {{access_token}}" } ],
+				"url": { "raw": "{{base_url}}/ai/public/plans/{{plan_id}}/bookmark", "host": ["{{base_url}}"], "path": ["ai","public","plans","{{plan_id}}","bookmark"] },
+				"description": "Remove bookmark"
+			},
+			"response": []
+		},
+		{
+			"name": "Public - List Bookmarks",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Authorization", "value": "Bearer {{access_token}}" } ],
+				"url": { "raw": "{{base_url}}/ai/bookmarks", "host": ["{{base_url}}"], "path": ["ai","bookmarks"] },
+				"description": "List user's bookmarks with progress summary"
+			},
+			"response": []
+		},
+		{
+			"name": "Public - Get Progress for Plan",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Authorization", "value": "Bearer {{access_token}}" } ],
+				"url": { "raw": "{{base_url}}/ai/public/plans/{{plan_id}}/progress", "host": ["{{base_url}}"], "path": ["ai","public","plans","{{plan_id}}","progress"] },
+				"description": "Get completed milestone ids for current user on a public plan"
+			},
+			"response": []
+		},
+		{
+			"name": "Public - Set Progress for Plan",
+			"request": {
+				"method": "POST",
+				"header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{access_token}}" } ],
+				"body": { "mode": "raw", "raw": "{\n  \"milestone_id\": \"{{milestone_id}}\",\n  \"completed\": true\n}" },
+				"url": { "raw": "{{base_url}}/ai/public/plans/{{plan_id}}/progress", "host": ["{{base_url}}"], "path": ["ai","public","plans","{{plan_id}}","progress"] },
+				"description": "Set/toggle milestone completion on a public plan for current user"
 			},
 			"response": []
 		}
