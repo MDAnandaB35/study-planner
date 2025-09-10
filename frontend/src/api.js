@@ -59,6 +59,82 @@ export function getPlanById(id) {
   return request(`/ai/plans/${id}`);
 }
 
+export function updatePlan(id, data) {
+  return request(`/ai/plans/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data)
+  });
+}
+
+export function deletePlan(id) {
+  return request(`/ai/plans/${id}`, {
+    method: "DELETE"
+  });
+}
+
+// Milestone CRUD
+export function addMilestone(planId, data) {
+  return request(`/ai/plans/${planId}/milestones`, {
+    method: "POST",
+    body: JSON.stringify(data)
+  });
+}
+
+export function updateMilestone(id, data) {
+  return request(`/ai/milestones/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data)
+  });
+}
+
+export function deleteMilestone(id) {
+  return request(`/ai/milestones/${id}`, {
+    method: "DELETE"
+  });
+}
+
+// Step CRUD
+export function addStep(milestoneId, data) {
+  return request(`/ai/milestones/${milestoneId}/steps`, {
+    method: "POST",
+    body: JSON.stringify(data)
+  });
+}
+
+export function updateStep(id, data) {
+  return request(`/ai/steps/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data)
+  });
+}
+
+export function deleteStep(id) {
+  return request(`/ai/steps/${id}`, {
+    method: "DELETE"
+  });
+}
+
+// Resource CRUD
+export function addResource(stepId, data) {
+  return request(`/ai/steps/${stepId}/resources`, {
+    method: "POST",
+    body: JSON.stringify(data)
+  });
+}
+
+export function updateResource(id, data) {
+  return request(`/ai/resources/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data)
+  });
+}
+
+export function deleteResource(id) {
+  return request(`/ai/resources/${id}`, {
+    method: "DELETE"
+  });
+}
+
 export default {
   signup,
   login,
@@ -67,7 +143,18 @@ export default {
   generateRoadmap,
   getLatestPlan,
   listPlans,
-  getPlanById
+  getPlanById,
+  updatePlan,
+  deletePlan,
+  addMilestone,
+  updateMilestone,
+  deleteMilestone,
+  addStep,
+  updateStep,
+  deleteStep,
+  addResource,
+  updateResource,
+  deleteResource
 };
 
 

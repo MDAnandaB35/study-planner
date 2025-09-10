@@ -30,9 +30,8 @@ export default function Home() {
         <header className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-semibold">Study Roadmap Builder AI</h1>
           <div className="text-sm text-slate-400 space-x-4">
-            <Link className="hover:text-slate-200" to="/login">Login</Link>
-            <Link className="hover:text-slate-200" to="/register">Register</Link>
-            <Link className="hover:text-slate-200" to="/dashboard">Dashboard</Link>
+            <Link className="hover:text-slate-200" to="/dashboard">Study Plans</Link>
+            <button onClick={() => { api.logout(); window.location.href = '/login'; }} className="hover:text-slate-200">Logout</button>
           </div>
         </header>
 
