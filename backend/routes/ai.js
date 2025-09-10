@@ -8,6 +8,7 @@ const router = express.Router();
 // Body: { focus: string, outcome: string }
 router.post("/complete", requireAuth, async (req, res) => {
   try {
+    const supabase = req.supabase || req.app.get("supabase");
     const { focus, outcome } = req.body;
 
     if (!focus || !outcome) {
@@ -138,7 +139,7 @@ router.post("/complete", requireAuth, async (req, res) => {
     const { planTitle, focus: planFocus, outcome: planOutcome, estimatedDurationWeeks, milestones } = roadmapJson || {};
 
     // 1) Insert plan
-    const { data: planInsert, error: planError } = await req.app.get("supabase").from("study_plans").insert({
+    const { data: planInsert, error: planError } = await supabase.from("study_plans").insert({
       user_id: req.user.id,
       title: planTitle || "Study Plan",
       focus: planFocus || String(focus),
@@ -162,7 +163,7 @@ router.post("/complete", requireAuth, async (req, res) => {
     }));
     let milestoneIdByIndex = new Map();
     if (milestoneRows.length > 0) {
-      const { data: milestonesInserted, error: milestonesError } = await req.app.get("supabase").from("plan_milestones").insert(milestoneRows).select();
+      const { data: milestonesInserted, error: milestonesError } = await supabase.from("plan_milestones").insert(milestoneRows).select();
       if (milestonesError) {
         return res.status(500).json({ success: false, error: milestonesError.message });
       }
@@ -186,7 +187,7 @@ router.post("/complete", requireAuth, async (req, res) => {
 
       let stepIdByIndex = new Map();
       if (stepRows.length > 0) {
-        const { data: stepsInserted, error: stepsError } = await req.app.get("supabase").from("milestone_steps").insert(stepRows).select();
+        const { data: stepsInserted, error: stepsError } = await supabase.from("milestone_steps").insert(stepRows).select();
         if (stepsError) {
           return res.status(500).json({ success: false, error: stepsError.message });
         }
@@ -208,7 +209,7 @@ router.post("/complete", requireAuth, async (req, res) => {
           order_index: resIndex
         }));
         if (resourceRows.length > 0) {
-          const { error: resourcesError } = await req.app.get("supabase").from("step_resources").insert(resourceRows);
+          const { error: resourcesError } = await supabase.from("step_resources").insert(resourceRows);
           if (resourcesError) {
             return res.status(500).json({ success: false, error: resourcesError.message });
           }
@@ -235,7 +236,7 @@ router.post("/complete", requireAuth, async (req, res) => {
 // PUT /ai/plans/:id - update plan basic info (title, focus, outcome, duration)
 router.put("/plans/:id", requireAuth, async (req, res) => {
   try {
-    const supabase = req.app.get("supabase");
+    const supabase = req.supabase || req.app.get("supabase");
     const planId = req.params.id;
     const { title, focus, outcome, estimated_duration_weeks } = req.body;
 
@@ -278,7 +279,7 @@ router.put("/plans/:id", requireAuth, async (req, res) => {
 // DELETE /ai/plans/:id - delete plan and all related data
 router.delete("/plans/:id", requireAuth, async (req, res) => {
   try {
-    const supabase = req.app.get("supabase");
+    const supabase = req.supabase || req.app.get("supabase");
     const planId = req.params.id;
 
     // Verify plan ownership
@@ -315,7 +316,7 @@ router.delete("/plans/:id", requireAuth, async (req, res) => {
 // POST /ai/plans/:id/milestones - add new milestone to plan
 router.post("/plans/:id/milestones", requireAuth, async (req, res) => {
   try {
-    const supabase = req.app.get("supabase");
+    const supabase = req.supabase || req.app.get("supabase");
     const planId = req.params.id;
     const { title, description, estimated_duration } = req.body;
 
@@ -367,26 +368,26 @@ router.post("/plans/:id/milestones", requireAuth, async (req, res) => {
 // PUT /ai/milestones/:id - update milestone
 router.put("/milestones/:id", requireAuth, async (req, res) => {
   try {
-    const supabase = req.app.get("supabase");
+    const supabase = req.supabase || req.app.get("supabase");
     const milestoneId = req.params.id;
     const { title, description, estimated_duration } = req.body;
 
-    // Verify milestone ownership through plan
-    const { data: milestone, error: checkError } = await supabase
+    // Ownership: milestone -> plan -> user
+    const { data: msRow, error: msErr } = await supabase
       .from("plan_milestones")
-      .select(`
-        id,
-        study_plans!inner(user_id)
-      `)
+      .select("id, plan_id")
       .eq("id", milestoneId)
-      .eq("study_plans.user_id", req.user.id)
       .single();
-    
-    if (checkError || !milestone) {
-      return res.status(404).json({ success: false, error: "Milestone not found" });
-    }
+    if (msErr || !msRow) return res.status(404).json({ success: false, error: "Milestone not found" });
 
-    // Update milestone
+    const { data: planRow, error: planErr } = await supabase
+      .from("study_plans")
+      .select("id, user_id")
+      .eq("id", msRow.plan_id)
+      .eq("user_id", req.user.id)
+      .single();
+    if (planErr || !planRow) return res.status(404).json({ success: false, error: "Milestone not found" });
+
     const { data, error } = await supabase
       .from("plan_milestones")
       .update({
@@ -397,11 +398,7 @@ router.put("/milestones/:id", requireAuth, async (req, res) => {
       .eq("id", milestoneId)
       .select()
       .single();
-
-    if (error) {
-      return res.status(500).json({ success: false, error: error.message });
-    }
-
+    if (error) return res.status(500).json({ success: false, error: error.message });
     return res.json({ success: true, milestone: data });
   } catch (e) {
     return res.status(500).json({ success: false, error: e.message });
@@ -411,34 +408,29 @@ router.put("/milestones/:id", requireAuth, async (req, res) => {
 // DELETE /ai/milestones/:id - delete milestone
 router.delete("/milestones/:id", requireAuth, async (req, res) => {
   try {
-    const supabase = req.app.get("supabase");
+    const supabase = req.supabase || req.app.get("supabase");
     const milestoneId = req.params.id;
 
-    // Verify milestone ownership through plan
-    const { data: milestone, error: checkError } = await supabase
+    const { data: msRow, error: msErr } = await supabase
       .from("plan_milestones")
-      .select(`
-        id,
-        study_plans!inner(user_id)
-      `)
+      .select("id, plan_id")
       .eq("id", milestoneId)
-      .eq("study_plans.user_id", req.user.id)
       .single();
-    
-    if (checkError || !milestone) {
-      return res.status(404).json({ success: false, error: "Milestone not found" });
-    }
+    if (msErr || !msRow) return res.status(404).json({ success: false, error: "Milestone not found" });
 
-    // Delete milestone (cascade will handle steps and resources)
+    const { data: planRow, error: planErr } = await supabase
+      .from("study_plans")
+      .select("id, user_id")
+      .eq("id", msRow.plan_id)
+      .eq("user_id", req.user.id)
+      .single();
+    if (planErr || !planRow) return res.status(404).json({ success: false, error: "Milestone not found" });
+
     const { error } = await supabase
       .from("plan_milestones")
       .delete()
       .eq("id", milestoneId);
-
-    if (error) {
-      return res.status(500).json({ success: false, error: error.message });
-    }
-
+    if (error) return res.status(500).json({ success: false, error: error.message });
     return res.json({ success: true, message: "Milestone deleted successfully" });
   } catch (e) {
     return res.status(500).json({ success: false, error: e.message });
@@ -450,24 +442,24 @@ router.delete("/milestones/:id", requireAuth, async (req, res) => {
 // POST /ai/milestones/:id/steps - add new step to milestone
 router.post("/milestones/:id/steps", requireAuth, async (req, res) => {
   try {
-    const supabase = req.app.get("supabase");
+    const supabase = req.supabase || req.app.get("supabase");
     const milestoneId = req.params.id;
     const { title, description } = req.body;
 
-    // Verify milestone ownership through plan
-    const { data: milestone, error: checkError } = await supabase
+    // Ownership: milestone -> plan -> user
+    const { data: msRow, error: msErr } = await supabase
       .from("plan_milestones")
-      .select(`
-        id,
-        study_plans!inner(user_id)
-      `)
+      .select("id, plan_id")
       .eq("id", milestoneId)
-      .eq("study_plans.user_id", req.user.id)
       .single();
-    
-    if (checkError || !milestone) {
-      return res.status(404).json({ success: false, error: "Milestone not found" });
-    }
+    if (msErr || !msRow) return res.status(404).json({ success: false, error: "Milestone not found" });
+    const { data: planRow, error: planErr } = await supabase
+      .from("study_plans")
+      .select("id, user_id")
+      .eq("id", msRow.plan_id)
+      .eq("user_id", req.user.id)
+      .single();
+    if (planErr || !planRow) return res.status(404).json({ success: false, error: "Milestone not found" });
 
     // Get next order index
     const { data: lastStep } = await supabase
@@ -504,28 +496,33 @@ router.post("/milestones/:id/steps", requireAuth, async (req, res) => {
 // PUT /ai/steps/:id - update step
 router.put("/steps/:id", requireAuth, async (req, res) => {
   try {
-    const supabase = req.app.get("supabase");
+    const supabase = req.supabase || req.app.get("supabase");
     const stepId = req.params.id;
     const { title, description } = req.body;
 
-    // Verify step ownership through milestone and plan
-    const { data: step, error: checkError } = await supabase
+    // Ownership: step -> milestone -> plan -> user
+    const { data: stepRow, error: stepErr } = await supabase
       .from("milestone_steps")
-      .select(`
-        id,
-        plan_milestones!inner(
-          study_plans!inner(user_id)
-        )
-      `)
+      .select("id, milestone_id")
       .eq("id", stepId)
-      .eq("plan_milestones.study_plans.user_id", req.user.id)
       .single();
-    
-    if (checkError || !step) {
-      return res.status(404).json({ success: false, error: "Step not found" });
-    }
+    if (stepErr || !stepRow) return res.status(404).json({ success: false, error: "Step not found" });
 
-    // Update step
+    const { data: msRow, error: msErr } = await supabase
+      .from("plan_milestones")
+      .select("id, plan_id")
+      .eq("id", stepRow.milestone_id)
+      .single();
+    if (msErr || !msRow) return res.status(404).json({ success: false, error: "Step not found" });
+
+    const { data: planRow, error: planErr } = await supabase
+      .from("study_plans")
+      .select("id, user_id")
+      .eq("id", msRow.plan_id)
+      .eq("user_id", req.user.id)
+      .single();
+    if (planErr || !planRow) return res.status(404).json({ success: false, error: "Step not found" });
+
     const { data, error } = await supabase
       .from("milestone_steps")
       .update({
@@ -535,11 +532,7 @@ router.put("/steps/:id", requireAuth, async (req, res) => {
       .eq("id", stepId)
       .select()
       .single();
-
-    if (error) {
-      return res.status(500).json({ success: false, error: error.message });
-    }
-
+    if (error) return res.status(500).json({ success: false, error: error.message });
     return res.json({ success: true, step: data });
   } catch (e) {
     return res.status(500).json({ success: false, error: e.message });
@@ -549,36 +542,36 @@ router.put("/steps/:id", requireAuth, async (req, res) => {
 // DELETE /ai/steps/:id - delete step
 router.delete("/steps/:id", requireAuth, async (req, res) => {
   try {
-    const supabase = req.app.get("supabase");
+    const supabase = req.supabase || req.app.get("supabase");
     const stepId = req.params.id;
 
-    // Verify step ownership through milestone and plan
-    const { data: step, error: checkError } = await supabase
+    const { data: stepRow, error: stepErr } = await supabase
       .from("milestone_steps")
-      .select(`
-        id,
-        plan_milestones!inner(
-          study_plans!inner(user_id)
-        )
-      `)
+      .select("id, milestone_id")
       .eq("id", stepId)
-      .eq("plan_milestones.study_plans.user_id", req.user.id)
       .single();
-    
-    if (checkError || !step) {
-      return res.status(404).json({ success: false, error: "Step not found" });
-    }
+    if (stepErr || !stepRow) return res.status(404).json({ success: false, error: "Step not found" });
 
-    // Delete step (cascade will handle resources)
+    const { data: msRow, error: msErr } = await supabase
+      .from("plan_milestones")
+      .select("id, plan_id")
+      .eq("id", stepRow.milestone_id)
+      .single();
+    if (msErr || !msRow) return res.status(404).json({ success: false, error: "Step not found" });
+
+    const { data: planRow, error: planErr } = await supabase
+      .from("study_plans")
+      .select("id, user_id")
+      .eq("id", msRow.plan_id)
+      .eq("user_id", req.user.id)
+      .single();
+    if (planErr || !planRow) return res.status(404).json({ success: false, error: "Step not found" });
+
     const { error } = await supabase
       .from("milestone_steps")
       .delete()
       .eq("id", stepId);
-
-    if (error) {
-      return res.status(500).json({ success: false, error: error.message });
-    }
-
+    if (error) return res.status(500).json({ success: false, error: error.message });
     return res.json({ success: true, message: "Step deleted successfully" });
   } catch (e) {
     return res.status(500).json({ success: false, error: e.message });
@@ -590,26 +583,32 @@ router.delete("/steps/:id", requireAuth, async (req, res) => {
 // POST /ai/steps/:id/resources - add new resource to step
 router.post("/steps/:id/resources", requireAuth, async (req, res) => {
   try {
-    const supabase = req.app.get("supabase");
+    const supabase = req.supabase || req.app.get("supabase");
     const stepId = req.params.id;
     const { type, title, url } = req.body;
 
-    // Verify step ownership through milestone and plan
-    const { data: step, error: checkError } = await supabase
+    // Ownership: step -> milestone -> plan -> user
+    const { data: stepRow, error: stepErr } = await supabase
       .from("milestone_steps")
-      .select(`
-        id,
-        plan_milestones!inner(
-          study_plans!inner(user_id)
-        )
-      `)
+      .select("id, milestone_id")
       .eq("id", stepId)
-      .eq("plan_milestones.study_plans.user_id", req.user.id)
       .single();
-    
-    if (checkError || !step) {
-      return res.status(404).json({ success: false, error: "Step not found" });
-    }
+    if (stepErr || !stepRow) return res.status(404).json({ success: false, error: "Step not found" });
+
+    const { data: msRow, error: msErr } = await supabase
+      .from("plan_milestones")
+      .select("id, plan_id")
+      .eq("id", stepRow.milestone_id)
+      .single();
+    if (msErr || !msRow) return res.status(404).json({ success: false, error: "Step not found" });
+
+    const { data: planRow, error: planErr } = await supabase
+      .from("study_plans")
+      .select("id, user_id")
+      .eq("id", msRow.plan_id)
+      .eq("user_id", req.user.id)
+      .single();
+    if (planErr || !planRow) return res.status(404).json({ success: false, error: "Step not found" });
 
     // Get next order index
     const { data: lastResource } = await supabase
@@ -647,30 +646,40 @@ router.post("/steps/:id/resources", requireAuth, async (req, res) => {
 // PUT /ai/resources/:id - update resource
 router.put("/resources/:id", requireAuth, async (req, res) => {
   try {
-    const supabase = req.app.get("supabase");
+    const supabase = req.supabase || req.app.get("supabase");
     const resourceId = req.params.id;
     const { type, title, url } = req.body;
 
-    // Verify resource ownership through step, milestone and plan
-    const { data: resource, error: checkError } = await supabase
+    // Ownership: resource -> step -> milestone -> plan -> user
+    const { data: resRow, error: resErr } = await supabase
       .from("step_resources")
-      .select(`
-        id,
-        milestone_steps!inner(
-          plan_milestones!inner(
-            study_plans!inner(user_id)
-          )
-        )
-      `)
+      .select("id, step_id")
       .eq("id", resourceId)
-      .eq("milestone_steps.plan_milestones.study_plans.user_id", req.user.id)
       .single();
-    
-    if (checkError || !resource) {
-      return res.status(404).json({ success: false, error: "Resource not found" });
-    }
+    if (resErr || !resRow) return res.status(404).json({ success: false, error: "Resource not found" });
 
-    // Update resource
+    const { data: stepRow, error: stepErr } = await supabase
+      .from("milestone_steps")
+      .select("id, milestone_id")
+      .eq("id", resRow.step_id)
+      .single();
+    if (stepErr || !stepRow) return res.status(404).json({ success: false, error: "Resource not found" });
+
+    const { data: msRow, error: msErr } = await supabase
+      .from("plan_milestones")
+      .select("id, plan_id")
+      .eq("id", stepRow.milestone_id)
+      .single();
+    if (msErr || !msRow) return res.status(404).json({ success: false, error: "Resource not found" });
+
+    const { data: planRow, error: planErr } = await supabase
+      .from("study_plans")
+      .select("id, user_id")
+      .eq("id", msRow.plan_id)
+      .eq("user_id", req.user.id)
+      .single();
+    if (planErr || !planRow) return res.status(404).json({ success: false, error: "Resource not found" });
+
     const { data, error } = await supabase
       .from("step_resources")
       .update({
@@ -681,11 +690,7 @@ router.put("/resources/:id", requireAuth, async (req, res) => {
       .eq("id", resourceId)
       .select()
       .single();
-
-    if (error) {
-      return res.status(500).json({ success: false, error: error.message });
-    }
-
+    if (error) return res.status(500).json({ success: false, error: error.message });
     return res.json({ success: true, resource: data });
   } catch (e) {
     return res.status(500).json({ success: false, error: e.message });
@@ -695,38 +700,43 @@ router.put("/resources/:id", requireAuth, async (req, res) => {
 // DELETE /ai/resources/:id - delete resource
 router.delete("/resources/:id", requireAuth, async (req, res) => {
   try {
-    const supabase = req.app.get("supabase");
+    const supabase = req.supabase || req.app.get("supabase");
     const resourceId = req.params.id;
 
-    // Verify resource ownership through step, milestone and plan
-    const { data: resource, error: checkError } = await supabase
+    const { data: resRow, error: resErr } = await supabase
       .from("step_resources")
-      .select(`
-        id,
-        milestone_steps!inner(
-          plan_milestones!inner(
-            study_plans!inner(user_id)
-          )
-        )
-      `)
+      .select("id, step_id")
       .eq("id", resourceId)
-      .eq("milestone_steps.plan_milestones.study_plans.user_id", req.user.id)
       .single();
-    
-    if (checkError || !resource) {
-      return res.status(404).json({ success: false, error: "Resource not found" });
-    }
+    if (resErr || !resRow) return res.status(404).json({ success: false, error: "Resource not found" });
 
-    // Delete resource
+    const { data: stepRow, error: stepErr } = await supabase
+      .from("milestone_steps")
+      .select("id, milestone_id")
+      .eq("id", resRow.step_id)
+      .single();
+    if (stepErr || !stepRow) return res.status(404).json({ success: false, error: "Resource not found" });
+
+    const { data: msRow, error: msErr } = await supabase
+      .from("plan_milestones")
+      .select("id, plan_id")
+      .eq("id", stepRow.milestone_id)
+      .single();
+    if (msErr || !msRow) return res.status(404).json({ success: false, error: "Resource not found" });
+
+    const { data: planRow, error: planErr } = await supabase
+      .from("study_plans")
+      .select("id, user_id")
+      .eq("id", msRow.plan_id)
+      .eq("user_id", req.user.id)
+      .single();
+    if (planErr || !planRow) return res.status(404).json({ success: false, error: "Resource not found" });
+
     const { error } = await supabase
       .from("step_resources")
       .delete()
       .eq("id", resourceId);
-
-    if (error) {
-      return res.status(500).json({ success: false, error: error.message });
-    }
-
+    if (error) return res.status(500).json({ success: false, error: error.message });
     return res.json({ success: true, message: "Resource deleted successfully" });
   } catch (e) {
     return res.status(500).json({ success: false, error: e.message });
@@ -736,7 +746,7 @@ router.delete("/resources/:id", requireAuth, async (req, res) => {
 // GET /ai/plans/public - fetch all study plans from other users (exclude current user)
 router.get("/plans/public", requireAuth, async (req, res) => {
   try {
-    const supabase = req.app.get("supabase");
+    const supabase = req.supabase || req.app.get("supabase");
     
     // Get all public plans (excluding current user)
     const { data: plans, error: plansError } = await supabase
@@ -773,7 +783,7 @@ router.get("/plans/public", requireAuth, async (req, res) => {
 // GET /ai/plans/public/:id - fetch a specific public plan by ID (read-only, no ownership check)
 router.get("/plans/public/:id", requireAuth, async (req, res) => {
   try {
-    const supabase = req.app.get("supabase");
+    const supabase = req.supabase || req.app.get("supabase");
     const planId = req.params.id;
 
     // Get the plan (any plan, not just user's own)
@@ -858,7 +868,7 @@ router.get("/plans/public/:id", requireAuth, async (req, res) => {
 // POST /ai/public/plans/:id/bookmark - bookmark a public plan for the current user
 router.post("/public/plans/:id/bookmark", requireAuth, async (req, res) => {
   try {
-    const supabase = req.app.get("supabase");
+    const supabase = req.supabase || req.app.get("supabase");
     const planId = req.params.id;
 
     // Ensure plan exists
@@ -885,7 +895,7 @@ router.post("/public/plans/:id/bookmark", requireAuth, async (req, res) => {
 // DELETE /ai/public/plans/:id/bookmark - remove bookmark
 router.delete("/public/plans/:id/bookmark", requireAuth, async (req, res) => {
   try {
-    const supabase = req.app.get("supabase");
+    const supabase = req.supabase || req.app.get("supabase");
     const planId = req.params.id;
     const { error } = await supabase
       .from("bookmarks")
@@ -902,7 +912,7 @@ router.delete("/public/plans/:id/bookmark", requireAuth, async (req, res) => {
 // GET /ai/bookmarks - list bookmarked plans for current user with author and created_at
 router.get("/bookmarks", requireAuth, async (req, res) => {
   try {
-    const supabase = req.app.get("supabase");
+    const supabase = req.supabase || req.app.get("supabase");
     const { data: bms, error: bmErr } = await supabase
       .from("bookmarks")
       .select("plan_id, created_at")
@@ -967,7 +977,7 @@ router.get("/bookmarks", requireAuth, async (req, res) => {
 // GET /ai/public/plans/:id/progress - get user's completed milestones for that plan
 router.get("/public/plans/:id/progress", requireAuth, async (req, res) => {
   try {
-    const supabase = req.app.get("supabase");
+    const supabase = req.supabase || req.app.get("supabase");
     const planId = req.params.id;
     const { data: milestones, error: msErr } = await supabase
       .from("plan_milestones")
@@ -995,7 +1005,7 @@ router.get("/public/plans/:id/progress", requireAuth, async (req, res) => {
 // Body: { milestone_id: string, completed: boolean }
 router.post("/public/plans/:id/progress", requireAuth, async (req, res) => {
   try {
-    const supabase = req.app.get("supabase");
+    const supabase = req.supabase || req.app.get("supabase");
     const planId = req.params.id;
     const { milestone_id, completed } = req.body || {};
     if (!milestone_id || typeof completed !== "boolean") {
@@ -1029,7 +1039,7 @@ export default router;
 // GET /ai/plans/latest - fetch latest plan with nested data for current user
 router.get("/plans/latest", requireAuth, async (req, res) => {
   try {
-    const supabase = req.app.get("supabase");
+    const supabase = req.supabase || req.app.get("supabase");
 
     // Latest plan for user
     const { data: plans, error: planErr } = await supabase
@@ -1110,7 +1120,7 @@ router.get("/plans/latest", requireAuth, async (req, res) => {
 // GET /ai/plans - list all plans for current user (summaries)
 router.get("/plans", requireAuth, async (req, res) => {
   try {
-    const supabase = req.app.get("supabase");
+    const supabase = req.supabase || req.app.get("supabase");
     const { data, error } = await supabase
       .from("study_plans")
       .select("id, title, focus, outcome, estimated_duration_weeks, created_at")
@@ -1126,7 +1136,7 @@ router.get("/plans", requireAuth, async (req, res) => {
 // GET /ai/plans/:id - fetch plan by id with nested data (must belong to user)
 router.get("/plans/:id", requireAuth, async (req, res) => {
   try {
-    const supabase = req.app.get("supabase");
+    const supabase = req.supabase || req.app.get("supabase");
     const planId = req.params.id;
 
     const { data: plans, error: planErr } = await supabase
