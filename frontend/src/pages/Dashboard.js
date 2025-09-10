@@ -73,6 +73,7 @@ export default function Dashboard() {
           <h2 className="text-2xl font-semibold">Study Plan List</h2>
           <div className="flex items-center space-x-4">
             <Link to="/" className="rounded-lg bg-slate-800 hover:bg-slate-700 px-4 py-2 text-sm">Create New Plan</Link>
+            <Link to="/public" className="rounded-lg bg-slate-800 hover:bg-slate-700 px-4 py-2 text-sm">Public Plans</Link>
             <button onClick={onLogout} className="rounded-lg bg-slate-800 hover:bg-slate-700 px-4 py-2 text-sm">Logout</button>
           </div>
         </div>

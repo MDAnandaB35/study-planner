@@ -135,6 +135,15 @@ export function deleteResource(id) {
   });
 }
 
+// Public plans
+export function getPublicPlans() {
+  return request("/ai/plans/public");
+}
+
+export function getPublicPlanById(id) {
+  return request(`/ai/plans/public/${id}`);
+}
+
 export default {
   signup,
   login,
@@ -154,7 +163,9 @@ export default {
   deleteStep,
   addResource,
   updateResource,
-  deleteResource
+  deleteResource,
+  getPublicPlans,
+  getPublicPlanById
 };
 
 

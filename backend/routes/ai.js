@@ -734,6 +734,161 @@ router.delete("/resources/:id", requireAuth, async (req, res) => {
   }
 });
 
+// GET /ai/plans/public - fetch all study plans from other users (exclude current user)
+router.get("/plans/public", requireAuth, async (req, res) => {
+  try {
+    const supabase = req.app.get("supabase");
+    
+    // Get all public plans (excluding current user)
+    const { data: plans, error: plansError } = await supabase
+      .from("study_plans")
+      .select("id, title, focus, outcome, estimated_duration_weeks, created_at, user_id")
+      .neq("user_id", req.user.id)
+      .order("created_at", { ascending: false });
+
+    if (plansError) {
+      return res.status(500).json({ success: false, error: plansError.message });
+    }
+
+    if (!plans || plans.length === 0) {
+      return res.json({ success: true, plans: [] });
+    }
+
+    // Get user emails for the plans
+    const userIds = [...new Set(plans.map(plan => plan.user_id))];
+    const { data: users, error: usersError } = await supabase
+      .from("auth.users")
+      .select("id, email")
+      .in("id", userIds);
+
+    if (usersError) {
+      // If we can't get user emails, return plans without email info
+      const plansWithoutEmails = plans.map(plan => ({
+        id: plan.id,
+        title: plan.title,
+        focus: plan.focus,
+        outcome: plan.outcome,
+        estimated_duration_weeks: plan.estimated_duration_weeks,
+        created_at: plan.created_at,
+        author_email: 'Unknown'
+      }));
+      return res.json({ success: true, plans: plansWithoutEmails });
+    }
+
+    // Create a map of user_id to email
+    const userEmailMap = {};
+    (users || []).forEach(user => {
+      userEmailMap[user.id] = user.email;
+    });
+
+    // Transform the data to include user email
+    const plansWithUsers = plans.map(plan => ({
+      id: plan.id,
+      title: plan.title,
+      focus: plan.focus,
+      outcome: plan.outcome,
+      estimated_duration_weeks: plan.estimated_duration_weeks,
+      created_at: plan.created_at,
+      author_email: userEmailMap[plan.user_id] || 'Unknown'
+    }));
+
+    return res.json({ success: true, plans: plansWithUsers });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// GET /ai/plans/public/:id - fetch a specific public plan by ID (read-only, no ownership check)
+router.get("/plans/public/:id", requireAuth, async (req, res) => {
+  try {
+    const supabase = req.app.get("supabase");
+    const planId = req.params.id;
+
+    // Get the plan (any plan, not just user's own)
+    const { data: plans, error: planErr } = await supabase
+      .from("study_plans")
+      .select("id, title, focus, outcome, estimated_duration_weeks, created_at, user_id")
+      .eq("id", planId)
+      .limit(1);
+    if (planErr) return res.status(500).json({ success: false, error: planErr.message });
+    const plan = plans?.[0];
+    if (!plan) return res.status(404).json({ success: false, error: "Plan not found" });
+
+    // Get author email
+    const { data: users, error: usersError } = await supabase
+      .from("auth.users")
+      .select("id, email")
+      .eq("id", plan.user_id)
+      .single();
+
+    const authorEmail = users?.email || 'Unknown';
+
+    // Get milestones
+    const { data: milestones, error: msErr } = await supabase
+      .from("plan_milestones")
+      .select("id, title, description, estimated_duration, order_index")
+      .eq("plan_id", plan.id)
+      .order("order_index", { ascending: true });
+    if (msErr) return res.status(500).json({ success: false, error: msErr.message });
+
+    // Get steps
+    const milestoneIds = (milestones || []).map(m => m.id);
+    const { data: steps, error: stepsErr } = await supabase
+      .from("milestone_steps")
+      .select("id, milestone_id, title, description, order_index")
+      .in("milestone_id", milestoneIds.length ? milestoneIds : ["00000000-0000-0000-0000-000000000000"])
+      .order("order_index", { ascending: true });
+    if (stepsErr) return res.status(500).json({ success: false, error: stepsErr.message });
+
+    // Get resources
+    const stepIds = (steps || []).map(s => s.id);
+    const { data: resources, error: resErr } = await supabase
+      .from("step_resources")
+      .select("id, step_id, type, title, url, order_index")
+      .in("step_id", stepIds.length ? stepIds : ["00000000-0000-0000-0000-000000000000"])
+      .order("order_index", { ascending: true });
+    if (resErr) return res.status(500).json({ success: false, error: resErr.message });
+
+    // Compose the tree structure
+    const stepsByMilestone = (steps || []).reduce((acc, s) => {
+      acc[s.milestone_id] = acc[s.milestone_id] || [];
+      acc[s.milestone_id].push({ ...s, resources: [] });
+      return acc;
+    }, {});
+
+    const resourcesByStep = (resources || []).reduce((acc, r) => {
+      acc[r.step_id] = acc[r.step_id] || [];
+      acc[r.step_id].push(r);
+      return acc;
+    }, {});
+
+    const milestonesWithSteps = (milestones || []).map(m => {
+      const mSteps = (stepsByMilestone[m.id] || []).map(s => ({
+        id: s.id,
+        title: s.title,
+        description: s.description,
+        order_index: s.order_index,
+        resources: resourcesByStep[s.id] || []
+      }));
+      return { ...m, steps: mSteps };
+    });
+
+    const result = {
+      id: plan.id,
+      title: plan.title,
+      focus: plan.focus,
+      outcome: plan.outcome,
+      estimated_duration_weeks: plan.estimated_duration_weeks,
+      created_at: plan.created_at,
+      author_email: authorEmail,
+      milestones: milestonesWithSteps
+    };
+    return res.json({ success: true, plan: result });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 export default router;
 
 // GET /ai/plans/latest - fetch latest plan with nested data for current user

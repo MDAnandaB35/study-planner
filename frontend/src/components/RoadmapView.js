@@ -7,7 +7,7 @@ import AddMilestoneForm from './AddMilestoneForm';
 import AddStepForm from './AddStepForm';
 import AddResourceForm from './AddResourceForm';
 
-export default function RoadmapView({ plan, onPlanUpdate }) {
+export default function RoadmapView({ plan, onPlanUpdate, readOnly = false }) {
   const [editingMilestone, setEditingMilestone] = React.useState(null);
   const [editingStep, setEditingStep] = React.useState(null);
   const [editingResource, setEditingResource] = React.useState(null);
@@ -83,26 +83,28 @@ export default function RoadmapView({ plan, onPlanUpdate }) {
                   <div className="text-slate-500 text-xs">{m.estimated_duration}</div>
                 )}
               </div>
-              <div className="flex items-center space-x-2 ml-4">
-                <button
-                  onClick={() => setEditingMilestone(m)}
-                  className="text-slate-400 hover:text-sky-400 text-xs px-2 py-1"
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={() => handleDeleteMilestone(m.id)}
-                  className="text-slate-400 hover:text-rose-400 text-xs px-2 py-1"
-                >
-                  Delete
-                </button>
-                <button
-                  onClick={() => setAddingStep(m.id)}
-                  className="text-slate-400 hover:text-green-400 text-xs px-2 py-1"
-                >
-                  + Step
-                </button>
-              </div>
+              {!readOnly && (
+                <div className="flex items-center space-x-2 ml-4">
+                  <button
+                    onClick={() => setEditingMilestone(m)}
+                    className="text-slate-400 hover:text-sky-400 text-xs px-2 py-1"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDeleteMilestone(m.id)}
+                    className="text-slate-400 hover:text-rose-400 text-xs px-2 py-1"
+                  >
+                    Delete
+                  </button>
+                  <button
+                    onClick={() => setAddingStep(m.id)}
+                    className="text-slate-400 hover:text-green-400 text-xs px-2 py-1"
+                  >
+                    + Step
+                  </button>
+                </div>
+              )}
             </div>
 
             {(m.steps || []).length ? (
@@ -129,45 +131,49 @@ export default function RoadmapView({ plan, onPlanUpdate }) {
                                     <span>{r.title}</span>
                                   )}
                                 </div>
-                                <div className="flex items-center space-x-1 ml-2">
-                                  <button
-                                    onClick={() => setEditingResource(r)}
-                                    className="text-slate-400 hover:text-sky-400 text-xs px-1"
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteResource(r.id)}
-                                    className="text-slate-400 hover:text-rose-400 text-xs px-1"
-                                  >
-                                    Delete
-                                  </button>
-                                </div>
+                                {!readOnly && (
+                                  <div className="flex items-center space-x-1 ml-2">
+                                    <button
+                                      onClick={() => setEditingResource(r)}
+                                      className="text-slate-400 hover:text-sky-400 text-xs px-1"
+                                    >
+                                      Edit
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteResource(r.id)}
+                                      className="text-slate-400 hover:text-rose-400 text-xs px-1"
+                                    >
+                                      Delete
+                                    </button>
+                                  </div>
+                                )}
                               </li>
                             ))}
                           </ul>
                         ) : null}
                       </div>
-                      <div className="flex items-center space-x-2 ml-4">
-                        <button
-                          onClick={() => setEditingStep(s)}
-                          className="text-slate-400 hover:text-sky-400 text-xs px-2 py-1"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDeleteStep(s.id)}
-                          className="text-slate-400 hover:text-rose-400 text-xs px-2 py-1"
-                        >
-                          Delete
-                        </button>
-                        <button
-                          onClick={() => setAddingResource(s.id)}
-                          className="text-slate-400 hover:text-green-400 text-xs px-2 py-1"
-                        >
-                          + Resource
-                        </button>
-                      </div>
+                      {!readOnly && (
+                        <div className="flex items-center space-x-2 ml-4">
+                          <button
+                            onClick={() => setEditingStep(s)}
+                            className="text-slate-400 hover:text-sky-400 text-xs px-2 py-1"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteStep(s.id)}
+                            className="text-slate-400 hover:text-rose-400 text-xs px-2 py-1"
+                          >
+                            Delete
+                          </button>
+                          <button
+                            onClick={() => setAddingResource(s.id)}
+                            className="text-slate-400 hover:text-green-400 text-xs px-2 py-1"
+                          >
+                            + Resource
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </li>
                 ))}
@@ -178,18 +184,20 @@ export default function RoadmapView({ plan, onPlanUpdate }) {
           </div>
         ))}
 
-        <div className="flex justify-center pt-4">
-          <button
-            onClick={() => setAddingMilestone(true)}
-            className="rounded-lg bg-slate-800 hover:bg-slate-700 px-4 py-2 text-sm text-slate-300"
-          >
-            + Add Milestone
-          </button>
-        </div>
+        {!readOnly && (
+          <div className="flex justify-center pt-4">
+            <button
+              onClick={() => setAddingMilestone(true)}
+              className="rounded-lg bg-slate-800 hover:bg-slate-700 px-4 py-2 text-sm text-slate-300"
+            >
+              + Add Milestone
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Edit Forms */}
-      {editingMilestone && (
+      {/* Edit Forms - Only show in non-read-only mode */}
+      {!readOnly && editingMilestone && (
         <EditMilestoneForm
           milestone={editingMilestone}
           onSave={() => {
@@ -200,7 +208,7 @@ export default function RoadmapView({ plan, onPlanUpdate }) {
         />
       )}
 
-      {editingStep && (
+      {!readOnly && editingStep && (
         <EditStepForm
           step={editingStep}
           onSave={() => {
@@ -211,7 +219,7 @@ export default function RoadmapView({ plan, onPlanUpdate }) {
         />
       )}
 
-      {editingResource && (
+      {!readOnly && editingResource && (
         <EditResourceForm
           resource={editingResource}
           onSave={() => {
@@ -222,8 +230,8 @@ export default function RoadmapView({ plan, onPlanUpdate }) {
         />
       )}
 
-      {/* Add Forms */}
-      {addingMilestone && (
+      {/* Add Forms - Only show in non-read-only mode */}
+      {!readOnly && addingMilestone && (
         <AddMilestoneForm
           planId={plan.id}
           onSave={() => {
@@ -234,7 +242,7 @@ export default function RoadmapView({ plan, onPlanUpdate }) {
         />
       )}
 
-      {addingStep && (
+      {!readOnly && addingStep && (
         <AddStepForm
           milestoneId={addingStep}
           onSave={() => {
@@ -245,7 +253,7 @@ export default function RoadmapView({ plan, onPlanUpdate }) {
         />
       )}
 
-      {addingResource && (
+      {!readOnly && addingResource && (
         <AddResourceForm
           stepId={addingResource}
           onSave={() => {

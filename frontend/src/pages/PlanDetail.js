@@ -1,5 +1,5 @@
 import React from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../api';
 import RoadmapView from '../components/RoadmapView';
 import EditPlanForm from '../components/EditPlanForm';
@@ -83,6 +83,7 @@ export default function PlanDetail() {
                 </button>
               </>
             )}
+            
           </div>
         </div>
         <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
