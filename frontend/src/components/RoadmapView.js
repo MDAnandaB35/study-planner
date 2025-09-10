@@ -73,7 +73,7 @@ export default function RoadmapView({ plan, onPlanUpdate, readOnly = false }) {
       <div className="space-y-4">
         {(plan.milestones || []).map((m) => (
           <div key={m.id} className="border border-slate-800 rounded-lg p-4 bg-slate-950">
-            <div className="flex items-start justify-between mb-2">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2">
               <div className="flex-1">
                 <div className="font-medium">{m.title}</div>
                 {m.description ? (
@@ -84,7 +84,7 @@ export default function RoadmapView({ plan, onPlanUpdate, readOnly = false }) {
                 )}
               </div>
               {!readOnly && (
-                <div className="flex items-center space-x-2 ml-4">
+                <div className="flex flex-wrap items-center gap-1 sm:gap-2 sm:ml-4">
                   <button
                     onClick={() => setEditingMilestone(m)}
                     className="text-slate-400 hover:text-sky-400 text-xs px-2 py-1"
@@ -111,7 +111,7 @@ export default function RoadmapView({ plan, onPlanUpdate, readOnly = false }) {
               <ol className="list-decimal pl-5 space-y-2">
                 {m.steps.map((s) => (
                   <li key={s.id} className="border-l border-slate-700 pl-3">
-                    <div className="flex items-start justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                       <div className="flex-1">
                         <div className="font-medium">{s.title}</div>
                         {s.description ? (
@@ -120,7 +120,7 @@ export default function RoadmapView({ plan, onPlanUpdate, readOnly = false }) {
                         {(s.resources || []).length ? (
                           <ul className="list-disc pl-5 mt-1 space-y-1">
                             {s.resources.map((r) => (
-                              <li key={r.id} className="text-slate-300 text-sm flex items-center justify-between">
+                              <li key={r.id} className="text-slate-300 text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
                                 <div>
                                   <span className="uppercase text-xs text-slate-400 mr-2">{r.type}</span>
                                   {r.url ? (
@@ -132,7 +132,7 @@ export default function RoadmapView({ plan, onPlanUpdate, readOnly = false }) {
                                   )}
                                 </div>
                                 {!readOnly && (
-                                  <div className="flex items-center space-x-1 ml-2">
+                                  <div className="flex flex-wrap items-center gap-1 sm:ml-2">
                                     <button
                                       onClick={() => setEditingResource(r)}
                                       className="text-slate-400 hover:text-sky-400 text-xs px-1"
@@ -153,7 +153,7 @@ export default function RoadmapView({ plan, onPlanUpdate, readOnly = false }) {
                         ) : null}
                       </div>
                       {!readOnly && (
-                        <div className="flex items-center space-x-2 ml-4">
+                        <div className="flex flex-wrap items-center gap-1 sm:gap-2 sm:ml-4">
                           <button
                             onClick={() => setEditingStep(s)}
                             className="text-slate-400 hover:text-sky-400 text-xs px-2 py-1"
@@ -188,7 +188,7 @@ export default function RoadmapView({ plan, onPlanUpdate, readOnly = false }) {
           <div className="flex justify-center pt-4">
             <button
               onClick={() => setAddingMilestone(true)}
-              className="rounded-lg bg-slate-800 hover:bg-slate-700 px-4 py-2 text-sm text-slate-300"
+              className="rounded-lg bg-slate-800 hover:bg-slate-700 px-4 py-2 text-sm text-slate-300 w-full sm:w-auto"
             >
               + Add Milestone
             </button>

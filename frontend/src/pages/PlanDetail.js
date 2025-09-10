@@ -63,27 +63,28 @@ export default function PlanDetail() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 p-6">
       <div className="max-w-3xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <button onClick={() => navigate(-1)} className="rounded-lg bg-slate-800 hover:bg-slate-700 px-4 py-2 text-sm">Back</button>
-          <div className="flex items-center space-x-3">
-            <div className="text-slate-400 text-sm">{plan ? new Date(plan.created_at).toLocaleString() : ''}</div>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+          <button onClick={() => navigate(-1)} className="rounded-lg bg-slate-800 hover:bg-slate-700 px-4 py-2 text-xs sm:text-sm w-full sm:w-auto">Back</button>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <div className="text-slate-400 text-xs sm:text-sm order-last sm:order-none w-full sm:w-auto">
+              {plan ? new Date(plan.created_at).toLocaleString() : ''}
+            </div>
             {plan && (
               <>
                 <button
                   onClick={handleEditPlan}
-                  className="rounded-lg bg-slate-800 hover:bg-slate-700 px-4 py-2 text-sm"
+                  className="rounded-lg bg-slate-800 hover:bg-slate-700 px-3 sm:px-4 py-2 text-xs sm:text-sm"
                 >
                   Edit Plan
                 </button>
                 <button
                   onClick={handleDeletePlan}
-                  className="rounded-lg bg-rose-800 hover:bg-rose-700 px-4 py-2 text-sm"
+                  className="rounded-lg bg-rose-800 hover:bg-rose-700 px-3 sm:px-4 py-2 text-xs sm:text-sm"
                 >
                   Delete Plan
                 </button>
               </>
             )}
-            
           </div>
         </div>
         <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
