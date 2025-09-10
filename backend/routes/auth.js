@@ -67,8 +67,9 @@ router.post("/login", async (req, res) => {
     // Set HTTP-only cookie for session management
     res.cookie("access_token", data.session.access_token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      // Required for cross-site cookies (Netlify -> Railway)
+      sameSite: "none",
+      secure: true,
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
