@@ -233,6 +233,507 @@ router.post("/complete", requireAuth, async (req, res) => {
   }
 });
 
+// PUT /ai/plans/:id - update plan basic info (title, focus, outcome, duration)
+router.put("/plans/:id", requireAuth, async (req, res) => {
+  try {
+    const supabase = req.app.get("supabase");
+    const planId = req.params.id;
+    const { title, focus, outcome, estimated_duration_weeks } = req.body;
+
+    // Verify plan ownership
+    const { data: existingPlan, error: checkError } = await supabase
+      .from("study_plans")
+      .select("id, user_id")
+      .eq("id", planId)
+      .eq("user_id", req.user.id)
+      .single();
+    
+    if (checkError || !existingPlan) {
+      return res.status(404).json({ success: false, error: "Plan not found" });
+    }
+
+    // Update plan
+    const { data, error } = await supabase
+      .from("study_plans")
+      .update({
+        title: title || null,
+        focus: focus || null,
+        outcome: outcome || null,
+        estimated_duration_weeks: estimated_duration_weeks || null
+      })
+      .eq("id", planId)
+      .eq("user_id", req.user.id)
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+
+    return res.json({ success: true, plan: data });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// DELETE /ai/plans/:id - delete plan and all related data
+router.delete("/plans/:id", requireAuth, async (req, res) => {
+  try {
+    const supabase = req.app.get("supabase");
+    const planId = req.params.id;
+
+    // Verify plan ownership
+    const { data: existingPlan, error: checkError } = await supabase
+      .from("study_plans")
+      .select("id, user_id")
+      .eq("id", planId)
+      .eq("user_id", req.user.id)
+      .single();
+    
+    if (checkError || !existingPlan) {
+      return res.status(404).json({ success: false, error: "Plan not found" });
+    }
+
+    // Delete plan (cascade will handle related records)
+    const { error } = await supabase
+      .from("study_plans")
+      .delete()
+      .eq("id", planId)
+      .eq("user_id", req.user.id);
+
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+
+    return res.json({ success: true, message: "Plan deleted successfully" });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// MILESTONE CRUD OPERATIONS
+
+// POST /ai/plans/:id/milestones - add new milestone to plan
+router.post("/plans/:id/milestones", requireAuth, async (req, res) => {
+  try {
+    const supabase = req.app.get("supabase");
+    const planId = req.params.id;
+    const { title, description, estimated_duration } = req.body;
+
+    // Verify plan ownership
+    const { data: existingPlan, error: checkError } = await supabase
+      .from("study_plans")
+      .select("id, user_id")
+      .eq("id", planId)
+      .eq("user_id", req.user.id)
+      .single();
+    
+    if (checkError || !existingPlan) {
+      return res.status(404).json({ success: false, error: "Plan not found" });
+    }
+
+    // Get next order index
+    const { data: lastMilestone } = await supabase
+      .from("plan_milestones")
+      .select("order_index")
+      .eq("plan_id", planId)
+      .order("order_index", { ascending: false })
+      .limit(1);
+
+    const nextOrder = lastMilestone?.[0]?.order_index + 1 || 0;
+
+    // Insert milestone
+    const { data, error } = await supabase
+      .from("plan_milestones")
+      .insert({
+        plan_id: planId,
+        title: title || "New Milestone",
+        description: description || null,
+        estimated_duration: estimated_duration || null,
+        order_index: nextOrder
+      })
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+
+    return res.json({ success: true, milestone: data });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// PUT /ai/milestones/:id - update milestone
+router.put("/milestones/:id", requireAuth, async (req, res) => {
+  try {
+    const supabase = req.app.get("supabase");
+    const milestoneId = req.params.id;
+    const { title, description, estimated_duration } = req.body;
+
+    // Verify milestone ownership through plan
+    const { data: milestone, error: checkError } = await supabase
+      .from("plan_milestones")
+      .select(`
+        id,
+        study_plans!inner(user_id)
+      `)
+      .eq("id", milestoneId)
+      .eq("study_plans.user_id", req.user.id)
+      .single();
+    
+    if (checkError || !milestone) {
+      return res.status(404).json({ success: false, error: "Milestone not found" });
+    }
+
+    // Update milestone
+    const { data, error } = await supabase
+      .from("plan_milestones")
+      .update({
+        title: title || null,
+        description: description || null,
+        estimated_duration: estimated_duration || null
+      })
+      .eq("id", milestoneId)
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+
+    return res.json({ success: true, milestone: data });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// DELETE /ai/milestones/:id - delete milestone
+router.delete("/milestones/:id", requireAuth, async (req, res) => {
+  try {
+    const supabase = req.app.get("supabase");
+    const milestoneId = req.params.id;
+
+    // Verify milestone ownership through plan
+    const { data: milestone, error: checkError } = await supabase
+      .from("plan_milestones")
+      .select(`
+        id,
+        study_plans!inner(user_id)
+      `)
+      .eq("id", milestoneId)
+      .eq("study_plans.user_id", req.user.id)
+      .single();
+    
+    if (checkError || !milestone) {
+      return res.status(404).json({ success: false, error: "Milestone not found" });
+    }
+
+    // Delete milestone (cascade will handle steps and resources)
+    const { error } = await supabase
+      .from("plan_milestones")
+      .delete()
+      .eq("id", milestoneId);
+
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+
+    return res.json({ success: true, message: "Milestone deleted successfully" });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// STEP CRUD OPERATIONS
+
+// POST /ai/milestones/:id/steps - add new step to milestone
+router.post("/milestones/:id/steps", requireAuth, async (req, res) => {
+  try {
+    const supabase = req.app.get("supabase");
+    const milestoneId = req.params.id;
+    const { title, description } = req.body;
+
+    // Verify milestone ownership through plan
+    const { data: milestone, error: checkError } = await supabase
+      .from("plan_milestones")
+      .select(`
+        id,
+        study_plans!inner(user_id)
+      `)
+      .eq("id", milestoneId)
+      .eq("study_plans.user_id", req.user.id)
+      .single();
+    
+    if (checkError || !milestone) {
+      return res.status(404).json({ success: false, error: "Milestone not found" });
+    }
+
+    // Get next order index
+    const { data: lastStep } = await supabase
+      .from("milestone_steps")
+      .select("order_index")
+      .eq("milestone_id", milestoneId)
+      .order("order_index", { ascending: false })
+      .limit(1);
+
+    const nextOrder = lastStep?.[0]?.order_index + 1 || 0;
+
+    // Insert step
+    const { data, error } = await supabase
+      .from("milestone_steps")
+      .insert({
+        milestone_id: milestoneId,
+        title: title || "New Step",
+        description: description || null,
+        order_index: nextOrder
+      })
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+
+    return res.json({ success: true, step: data });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// PUT /ai/steps/:id - update step
+router.put("/steps/:id", requireAuth, async (req, res) => {
+  try {
+    const supabase = req.app.get("supabase");
+    const stepId = req.params.id;
+    const { title, description } = req.body;
+
+    // Verify step ownership through milestone and plan
+    const { data: step, error: checkError } = await supabase
+      .from("milestone_steps")
+      .select(`
+        id,
+        plan_milestones!inner(
+          study_plans!inner(user_id)
+        )
+      `)
+      .eq("id", stepId)
+      .eq("plan_milestones.study_plans.user_id", req.user.id)
+      .single();
+    
+    if (checkError || !step) {
+      return res.status(404).json({ success: false, error: "Step not found" });
+    }
+
+    // Update step
+    const { data, error } = await supabase
+      .from("milestone_steps")
+      .update({
+        title: title || null,
+        description: description || null
+      })
+      .eq("id", stepId)
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+
+    return res.json({ success: true, step: data });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// DELETE /ai/steps/:id - delete step
+router.delete("/steps/:id", requireAuth, async (req, res) => {
+  try {
+    const supabase = req.app.get("supabase");
+    const stepId = req.params.id;
+
+    // Verify step ownership through milestone and plan
+    const { data: step, error: checkError } = await supabase
+      .from("milestone_steps")
+      .select(`
+        id,
+        plan_milestones!inner(
+          study_plans!inner(user_id)
+        )
+      `)
+      .eq("id", stepId)
+      .eq("plan_milestones.study_plans.user_id", req.user.id)
+      .single();
+    
+    if (checkError || !step) {
+      return res.status(404).json({ success: false, error: "Step not found" });
+    }
+
+    // Delete step (cascade will handle resources)
+    const { error } = await supabase
+      .from("milestone_steps")
+      .delete()
+      .eq("id", stepId);
+
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+
+    return res.json({ success: true, message: "Step deleted successfully" });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// RESOURCE CRUD OPERATIONS
+
+// POST /ai/steps/:id/resources - add new resource to step
+router.post("/steps/:id/resources", requireAuth, async (req, res) => {
+  try {
+    const supabase = req.app.get("supabase");
+    const stepId = req.params.id;
+    const { type, title, url } = req.body;
+
+    // Verify step ownership through milestone and plan
+    const { data: step, error: checkError } = await supabase
+      .from("milestone_steps")
+      .select(`
+        id,
+        plan_milestones!inner(
+          study_plans!inner(user_id)
+        )
+      `)
+      .eq("id", stepId)
+      .eq("plan_milestones.study_plans.user_id", req.user.id)
+      .single();
+    
+    if (checkError || !step) {
+      return res.status(404).json({ success: false, error: "Step not found" });
+    }
+
+    // Get next order index
+    const { data: lastResource } = await supabase
+      .from("step_resources")
+      .select("order_index")
+      .eq("step_id", stepId)
+      .order("order_index", { ascending: false })
+      .limit(1);
+
+    const nextOrder = lastResource?.[0]?.order_index + 1 || 0;
+
+    // Insert resource
+    const { data, error } = await supabase
+      .from("step_resources")
+      .insert({
+        step_id: stepId,
+        type: type || "link",
+        title: title || "New Resource",
+        url: url || null,
+        order_index: nextOrder
+      })
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+
+    return res.json({ success: true, resource: data });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// PUT /ai/resources/:id - update resource
+router.put("/resources/:id", requireAuth, async (req, res) => {
+  try {
+    const supabase = req.app.get("supabase");
+    const resourceId = req.params.id;
+    const { type, title, url } = req.body;
+
+    // Verify resource ownership through step, milestone and plan
+    const { data: resource, error: checkError } = await supabase
+      .from("step_resources")
+      .select(`
+        id,
+        milestone_steps!inner(
+          plan_milestones!inner(
+            study_plans!inner(user_id)
+          )
+        )
+      `)
+      .eq("id", resourceId)
+      .eq("milestone_steps.plan_milestones.study_plans.user_id", req.user.id)
+      .single();
+    
+    if (checkError || !resource) {
+      return res.status(404).json({ success: false, error: "Resource not found" });
+    }
+
+    // Update resource
+    const { data, error } = await supabase
+      .from("step_resources")
+      .update({
+        type: type || null,
+        title: title || null,
+        url: url || null
+      })
+      .eq("id", resourceId)
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+
+    return res.json({ success: true, resource: data });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// DELETE /ai/resources/:id - delete resource
+router.delete("/resources/:id", requireAuth, async (req, res) => {
+  try {
+    const supabase = req.app.get("supabase");
+    const resourceId = req.params.id;
+
+    // Verify resource ownership through step, milestone and plan
+    const { data: resource, error: checkError } = await supabase
+      .from("step_resources")
+      .select(`
+        id,
+        milestone_steps!inner(
+          plan_milestones!inner(
+            study_plans!inner(user_id)
+          )
+        )
+      `)
+      .eq("id", resourceId)
+      .eq("milestone_steps.plan_milestones.study_plans.user_id", req.user.id)
+      .single();
+    
+    if (checkError || !resource) {
+      return res.status(404).json({ success: false, error: "Resource not found" });
+    }
+
+    // Delete resource
+    const { error } = await supabase
+      .from("step_resources")
+      .delete()
+      .eq("id", resourceId);
+
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+
+    return res.json({ success: true, message: "Resource deleted successfully" });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 export default router;
 
 // GET /ai/plans/latest - fetch latest plan with nested data for current user
