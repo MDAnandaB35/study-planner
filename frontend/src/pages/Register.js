@@ -16,6 +16,7 @@ export default function Register() {
     try {
       await api.signup(email, password);
       window.alert('Please check your inbox and verify your email before logging in.');
+      
       navigate('/', { replace: true });
     } catch (err) {
       setError(err.message || 'Registration failed');
