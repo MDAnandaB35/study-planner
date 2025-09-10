@@ -144,6 +144,30 @@ export function getPublicPlanById(id) {
   return request(`/ai/plans/public/${id}`);
 }
 
+// Bookmarks & Progress (public plans)
+export function bookmarkPlan(id) {
+  return request(`/ai/public/plans/${id}/bookmark`, { method: "POST" });
+}
+
+export function unbookmarkPlan(id) {
+  return request(`/ai/public/plans/${id}/bookmark`, { method: "DELETE" });
+}
+
+export function listBookmarks() {
+  return request(`/ai/bookmarks`);
+}
+
+export function getPublicPlanProgress(id) {
+  return request(`/ai/public/plans/${id}/progress`);
+}
+
+export function setPublicPlanProgress(id, milestone_id, completed) {
+  return request(`/ai/public/plans/${id}/progress`, {
+    method: "POST",
+    body: JSON.stringify({ milestone_id, completed })
+  });
+}
+
 export default {
   signup,
   login,
@@ -165,7 +189,12 @@ export default {
   updateResource,
   deleteResource,
   getPublicPlans,
-  getPublicPlanById
+  getPublicPlanById,
+  bookmarkPlan,
+  unbookmarkPlan,
+  listBookmarks,
+  getPublicPlanProgress,
+  setPublicPlanProgress
 };
 
 

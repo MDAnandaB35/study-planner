@@ -72,6 +72,25 @@ npm run dev
 
 ### 6. Logout
 
+### 7. AI/Plans (existing)
+
+- POST `/ai/complete`
+- GET `/ai/plans`
+- GET `/ai/plans/latest`
+- GET `/ai/plans/:id`
+- PUT `/ai/plans/:id`
+- DELETE `/ai/plans/:id`
+- GET `/ai/plans/public`
+- GET `/ai/plans/public/:id`
+
+### 8. Bookmarks & Progress (new)
+
+- POST `/ai/public/plans/:id/bookmark`
+- DELETE `/ai/public/plans/:id/bookmark`
+- GET `/ai/bookmarks`
+- GET `/ai/public/plans/:id/progress`
+- POST `/ai/public/plans/:id/progress` with body `{ "milestone_id": string, "completed": boolean }`
+
 - **Method**: POST
 - **URL**: `http://localhost:3001/auth/logout`
 - **Description**: Clears the authentication cookie

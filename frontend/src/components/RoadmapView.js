@@ -7,7 +7,7 @@ import AddMilestoneForm from './AddMilestoneForm';
 import AddStepForm from './AddStepForm';
 import AddResourceForm from './AddResourceForm';
 
-export default function RoadmapView({ plan, onPlanUpdate, readOnly = false }) {
+export default function RoadmapView({ plan, onPlanUpdate, readOnly = false, progress }) {
   const [editingMilestone, setEditingMilestone] = React.useState(null);
   const [editingStep, setEditingStep] = React.useState(null);
   const [editingResource, setEditingResource] = React.useState(null);
@@ -71,11 +71,36 @@ export default function RoadmapView({ plan, onPlanUpdate, readOnly = false }) {
       </div>
 
       <div className="space-y-4">
-        {(plan.milestones || []).map((m) => (
+        {(plan.milestones || []).map((m) => {
+          const isCompleted = Array.isArray(progress?.completedIds) && progress.completedIds.includes(m.id);
+          const toggleable = readOnly && progress && typeof progress?.setCompletedIds === 'function' && progress?.planId;
+          return (
           <div key={m.id} className="border border-slate-800 rounded-lg p-4 bg-slate-950">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2">
               <div className="flex-1">
-                <div className="font-medium">{m.title}</div>
+                <div className="font-medium flex items-start gap-2">
+                  {toggleable && (
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-4 w-4 rounded border-slate-600 bg-slate-900 text-emerald-500 focus:ring-emerald-600"
+                      checked={!!isCompleted}
+                      onChange={async (e) => {
+                        const next = e.target.checked;
+                        try {
+                          await api.setPublicPlanProgress(progress.planId, m.id, next);
+                          progress.setCompletedIds((prev) => {
+                            const set = new Set(prev || []);
+                            if (next) set.add(m.id); else set.delete(m.id);
+                            return Array.from(set);
+                          });
+                        } catch (err) {
+                          alert(err.message || 'Failed to update progress');
+                        }
+                      }}
+                    />
+                  )}
+                  <span className={isCompleted ? 'line-through text-slate-400' : ''}>{m.title}</span>
+                </div>
                 {m.description ? (
                   <div className="text-slate-400 text-sm mb-2">{m.description}</div>
                 ) : null}
@@ -182,7 +207,8 @@ export default function RoadmapView({ plan, onPlanUpdate, readOnly = false }) {
               <div className="text-slate-500 text-sm">No steps</div>
             )}
           </div>
-        ))}
+          );
+        })}
 
         {!readOnly && (
           <div className="flex justify-center pt-4">

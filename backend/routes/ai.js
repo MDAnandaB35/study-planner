@@ -754,34 +754,7 @@ router.get("/plans/public", requireAuth, async (req, res) => {
       return res.json({ success: true, plans: [] });
     }
 
-    // Get user emails for the plans
-    const userIds = [...new Set(plans.map(plan => plan.user_id))];
-    const { data: users, error: usersError } = await supabase
-      .from("auth.users")
-      .select("id, email")
-      .in("id", userIds);
-
-    if (usersError) {
-      // If we can't get user emails, return plans without email info
-      const plansWithoutEmails = plans.map(plan => ({
-        id: plan.id,
-        title: plan.title,
-        focus: plan.focus,
-        outcome: plan.outcome,
-        estimated_duration_weeks: plan.estimated_duration_weeks,
-        created_at: plan.created_at,
-        author_email: 'Unknown'
-      }));
-      return res.json({ success: true, plans: plansWithoutEmails });
-    }
-
-    // Create a map of user_id to email
-    const userEmailMap = {};
-    (users || []).forEach(user => {
-      userEmailMap[user.id] = user.email;
-    });
-
-    // Transform the data to include user email
+    // Transform the data (author email unavailable without elevated privileges)
     const plansWithUsers = plans.map(plan => ({
       id: plan.id,
       title: plan.title,
@@ -789,7 +762,7 @@ router.get("/plans/public", requireAuth, async (req, res) => {
       outcome: plan.outcome,
       estimated_duration_weeks: plan.estimated_duration_weeks,
       created_at: plan.created_at,
-      author_email: userEmailMap[plan.user_id] || 'Unknown'
+      author_email: 'Unknown'
     }));
 
     return res.json({ success: true, plans: plansWithUsers });
@@ -814,14 +787,8 @@ router.get("/plans/public/:id", requireAuth, async (req, res) => {
     const plan = plans?.[0];
     if (!plan) return res.status(404).json({ success: false, error: "Plan not found" });
 
-    // Get author email
-    const { data: users, error: usersError } = await supabase
-      .from("auth.users")
-      .select("id, email")
-      .eq("id", plan.user_id)
-      .single();
-
-    const authorEmail = users?.email || 'Unknown';
+    // Author email unavailable without elevated privileges
+    const authorEmail = 'Unknown';
 
     // Get milestones
     const { data: milestones, error: msErr } = await supabase
@@ -884,6 +851,175 @@ router.get("/plans/public/:id", requireAuth, async (req, res) => {
       milestones: milestonesWithSteps
     };
     return res.json({ success: true, plan: result });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// POST /ai/public/plans/:id/bookmark - bookmark a public plan for the current user
+router.post("/public/plans/:id/bookmark", requireAuth, async (req, res) => {
+  try {
+    const supabase = req.app.get("supabase");
+    const planId = req.params.id;
+
+    // Ensure plan exists
+    const { data: plan, error: planErr } = await supabase
+      .from("study_plans")
+      .select("id, user_id")
+      .eq("id", planId)
+      .single();
+    if (planErr || !plan) return res.status(404).json({ success: false, error: "Plan not found" });
+
+    // Upsert bookmark
+    const { data, error } = await supabase
+      .from("bookmarks")
+      .upsert({ user_id: req.user.id, plan_id: planId }, { onConflict: "user_id,plan_id" })
+      .select()
+      .single();
+    if (error) return res.status(500).json({ success: false, error: error.message });
+    return res.json({ success: true, bookmark: data });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// DELETE /ai/public/plans/:id/bookmark - remove bookmark
+router.delete("/public/plans/:id/bookmark", requireAuth, async (req, res) => {
+  try {
+    const supabase = req.app.get("supabase");
+    const planId = req.params.id;
+    const { error } = await supabase
+      .from("bookmarks")
+      .delete()
+      .eq("user_id", req.user.id)
+      .eq("plan_id", planId);
+    if (error) return res.status(500).json({ success: false, error: error.message });
+    return res.json({ success: true });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// GET /ai/bookmarks - list bookmarked plans for current user with author and created_at
+router.get("/bookmarks", requireAuth, async (req, res) => {
+  try {
+    const supabase = req.app.get("supabase");
+    const { data: bms, error: bmErr } = await supabase
+      .from("bookmarks")
+      .select("plan_id, created_at")
+      .eq("user_id", req.user.id)
+      .order("created_at", { ascending: false });
+    if (bmErr) return res.status(500).json({ success: false, error: bmErr.message });
+
+    const planIds = (bms || []).map(b => b.plan_id);
+    if (!planIds.length) return res.json({ success: true, plans: [] });
+
+    const { data: plans, error: plansErr } = await supabase
+      .from("study_plans")
+      .select("id, title, focus, outcome, estimated_duration_weeks, created_at, user_id")
+      .in("id", planIds);
+    if (plansErr) return res.status(500).json({ success: false, error: plansErr.message });
+
+    // Author email unavailable without elevated privileges
+    // Progress per plan
+    const { data: milestones, error: msErr } = await supabase
+      .from("plan_milestones")
+      .select("id, plan_id");
+    if (msErr) return res.status(500).json({ success: false, error: msErr.message });
+
+    const milestoneIds = (milestones || []).filter(m => planIds.includes(m.plan_id)).map(m => m.id);
+    const { data: progressRows, error: progErr } = await supabase
+      .from("plan_progress")
+      .select("plan_id, milestone_id, completed")
+      .eq("user_id", req.user.id)
+      .in("plan_id", planIds);
+    if (progErr) return res.status(500).json({ success: false, error: progErr.message });
+
+    const completedByPlan = (progressRows || []).reduce((acc, r) => {
+      if (r.completed) {
+        acc[r.plan_id] = (acc[r.plan_id] || 0) + 1;
+      }
+      return acc;
+    }, {});
+    const totalByPlan = planIds.reduce((acc, pid) => {
+      acc[pid] = (milestones || []).filter(m => m.plan_id === pid).length;
+      return acc;
+    }, {});
+
+    const merged = plans.map(p => ({
+      id: p.id,
+      title: p.title,
+      focus: p.focus,
+      outcome: p.outcome,
+      estimated_duration_weeks: p.estimated_duration_weeks,
+      created_at: p.created_at,
+      author_email: 'Unknown',
+      progress: {
+        completed: completedByPlan[p.id] || 0,
+        total: totalByPlan[p.id] || 0
+      }
+    }));
+    return res.json({ success: true, plans: merged });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// GET /ai/public/plans/:id/progress - get user's completed milestones for that plan
+router.get("/public/plans/:id/progress", requireAuth, async (req, res) => {
+  try {
+    const supabase = req.app.get("supabase");
+    const planId = req.params.id;
+    const { data: milestones, error: msErr } = await supabase
+      .from("plan_milestones")
+      .select("id")
+      .eq("plan_id", planId);
+    if (msErr) return res.status(500).json({ success: false, error: msErr.message });
+
+    const milestoneIds = (milestones || []).map(m => m.id);
+    const { data: progressRows, error: progErr } = await supabase
+      .from("plan_progress")
+      .select("milestone_id, completed")
+      .eq("user_id", req.user.id)
+      .eq("plan_id", planId)
+      .in("milestone_id", milestoneIds.length ? milestoneIds : ["00000000-0000-0000-0000-000000000000"]);
+    if (progErr) return res.status(500).json({ success: false, error: progErr.message });
+
+    const completedMilestoneIds = (progressRows || []).filter(r => r.completed).map(r => r.milestone_id);
+    return res.json({ success: true, completedMilestoneIds });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// POST /ai/public/plans/:id/progress - set/toggle milestone completion
+// Body: { milestone_id: string, completed: boolean }
+router.post("/public/plans/:id/progress", requireAuth, async (req, res) => {
+  try {
+    const supabase = req.app.get("supabase");
+    const planId = req.params.id;
+    const { milestone_id, completed } = req.body || {};
+    if (!milestone_id || typeof completed !== "boolean") {
+      return res.status(400).json({ success: false, error: "milestone_id and completed are required" });
+    }
+
+    // Ensure milestone belongs to plan
+    const { data: ms, error: msErr } = await supabase
+      .from("plan_milestones")
+      .select("id, plan_id")
+      .eq("id", milestone_id)
+      .single();
+    if (msErr || !ms || ms.plan_id !== planId) {
+      return res.status(404).json({ success: false, error: "Milestone not found for plan" });
+    }
+
+    const { data, error } = await supabase
+      .from("plan_progress")
+      .upsert({ user_id: req.user.id, plan_id: planId, milestone_id, completed }, { onConflict: "user_id,plan_id,milestone_id" })
+      .select()
+      .single();
+    if (error) return res.status(500).json({ success: false, error: error.message });
+    return res.json({ success: true, progress: data });
   } catch (e) {
     return res.status(500).json({ success: false, error: e.message });
   }

@@ -9,6 +9,9 @@ export default function PublicPlanDetail() {
   const [loading, setLoading] = React.useState(true);
   const [plan, setPlan] = React.useState(null);
   const [error, setError] = React.useState('');
+  const [completedIds, setCompletedIds] = React.useState([]);
+  const [bookmarking, setBookmarking] = React.useState(false);
+  const [isBookmarked, setIsBookmarked] = React.useState(false);
 
   React.useEffect(() => {
     (async () => {
@@ -17,6 +20,13 @@ export default function PublicPlanDetail() {
         await api.getMe();
         const res = await api.getPublicPlanById(id);
         setPlan(res?.plan || null);
+        // Load progress
+        const prog = await api.getPublicPlanProgress(id);
+        setCompletedIds(prog?.completedMilestoneIds || []);
+        // Check bookmark status via list
+        const bms = await api.listBookmarks();
+        const found = (bms?.plans || []).some(p => p.id === id);
+        setIsBookmarked(found);
       } catch (e) {
         if (e.message.includes('401') || e.message.includes('authentication')) {
           navigate('/login', { replace: true });
@@ -87,22 +97,48 @@ export default function PublicPlanDetail() {
 
         {plan && (
           <div className="mb-4 p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
                 <h3 className="text-lg font-semibold text-slate-200">Study Plan by {plan.author_email}</h3>
                 <p className="text-sm text-slate-400">This is a read-only view of another user's study plan</p>
               </div>
-              <div className="text-right">
+              <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                 <div className="text-sm text-slate-400">
                   {plan.estimated_duration_weeks && `${plan.estimated_duration_weeks} weeks`}
                 </div>
+                <button
+                  disabled={bookmarking}
+                  onClick={async () => {
+                    try {
+                      setBookmarking(true);
+                      if (isBookmarked) {
+                        await api.unbookmarkPlan(id);
+                        setIsBookmarked(false);
+                      } else {
+                        await api.bookmarkPlan(id);
+                        setIsBookmarked(true);
+                      }
+                    } catch (e) {
+                      alert(e.message || 'Bookmark failed');
+                    } finally {
+                      setBookmarking(false);
+                    }
+                  }}
+                  className={`rounded-lg px-3 py-2 text-sm ${isBookmarked ? 'bg-emerald-800 hover:bg-emerald-700' : 'bg-slate-800 hover:bg-slate-700'}`}
+                >
+                  {isBookmarked ? 'Bookmarked' : 'Bookmark'}
+                </button>
               </div>
             </div>
           </div>
         )}
 
         <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
-          <RoadmapView plan={plan} readOnly={true} />
+          <RoadmapView 
+            plan={plan} 
+            readOnly={true}
+            progress={{ completedIds, setCompletedIds, planId: id }}
+          />
         </div>
       </div>
     </div>

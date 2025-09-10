@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import api from '../api';
+import NavBar from './NavBar';
 
 export default function ProtectedRoute({ children }) {
   const [loading, setLoading] = React.useState(true);
@@ -27,5 +28,14 @@ export default function ProtectedRoute({ children }) {
     );
   }
 
-  return isAuthenticated ? children : <Navigate to="/login" replace />;
+  if (!isAuthenticated) {
+    return <Navigate to="/" replace />;
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-200">
+      <NavBar />
+      {children}
+    </div>
+  );
 }

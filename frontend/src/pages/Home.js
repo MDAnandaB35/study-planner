@@ -29,11 +29,6 @@ export default function Home() {
       <div className="max-w-5xl mx-auto p-6">
         <header className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-semibold">Study Roadmap Builder AI</h1>
-          <div className="text-sm text-slate-400 space-x-4">
-            <Link className="hover:text-slate-200" to="/dashboard">My Plans</Link>
-            <Link className="hover:text-slate-200" to="/public">Public Plans</Link>
-            <button onClick={() => { api.logout(); window.location.href = '/login'; }} className="hover:text-slate-200">Logout</button>
-          </div>
         </header>
 
         <form onSubmit={onSubmit} className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 grid gap-3">
